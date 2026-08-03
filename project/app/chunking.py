@@ -13,6 +13,7 @@ from tree_sitter import Language, Parser
 
 @dataclass
 class Chunk:
+    id: str
     text: str
     file_path: str
     node_type: str          # "function_definition" or "class_definition"
