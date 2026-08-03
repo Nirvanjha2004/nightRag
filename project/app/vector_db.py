@@ -1,42 +1,101 @@
-import requests
-import json
 from qdrant_client import QdrantClient
+from qdrant_client.models import (
+    VectorParams,
+    Distance,
+    PointStruct,
+)
 
-class VectorDBClass :
+
+class VectorDB:
     def __init__(self, client: QdrantClient):
         self.client = client
 
-    def create_collection(self, collection_name: str) -> None:
-        """Create a collection in the database"""
-        if collection_name in self.client.list_collections():
-            print(f"Collection {collection_name} already exists")
+    def create_collection(
+        self,
+        collection_name: str,
+        vector_size: int = 1536,
+    ) -> None:
+        """Create a collection if it does not already exist."""
+
+        collections = self.client.get_collections().collections
+        collection_names = {collection.name for collection in collections}
+
+        if collection_name in collection_names:
+            print(f"Collection '{collection_name}' already exists.")
             return
-        print(f"Creating collection {collection_name}")
+
         self.client.create_collection(
             collection_name=collection_name,
-            vector_params={"size": 1536},
-            distance={"type": "L2"},
-            params={"sharding": {"shards_count": 1}}
+            vectors_config=VectorParams(
+                size=vector_size,
+                distance=Distance.COSINE,
+            ),
         )
-        print(f"Collection {collection_name} created")
-    def store_embedding(self, collection_name: str, chunk: Chunk , embedding: list[float]) -> None:
-        """Store the embedding of a chunk in the database"""
-        operation_info = self.client.upsert(
-            collection_name=collection_name,
-            points=[{
-                "id": chunk.id,
-                "vector": embedding,
-                "payload": chunk.metadata
-            }]
-        )
-        print(f"Stored {len(embedding)} points in collection {collection_name}")
-        print(operation_info)
 
-    def query(self, collection_name: str, query: list[float], top_k: int = 5) -> list[dict]:
-        """Query the database for the closest embeddings to a query"""
-        response = self.client.search(
-            collection_name=collection_name,
-            query_vector=query,
-            top_k=top_k
+        print(f"Collection '{collection_name}' created.")
+
+    def store_embedding(
+        self,
+        collection_name: str,
+        chunk: Chunk,
+        embedding: list[float],
+    ) -> None:
+        """Store a single chunk embedding."""
+
+        point = PointStruct(
+            id=chunk.id,
+            vector=embedding,
+            payload=chunk.metadata,
         )
-        return response["result"]
+
+        self.client.upsert(
+            collection_name=collection_name,
+            points=[point],
+            wait=True,
+        )
+
+        print(f"Stored chunk {chunk.id}")
+
+    def store_embeddings(
+        self,
+        collection_name: str,
+        chunks: list[Chunk],
+        embeddings: list[list[float]],
+    ) -> None:
+        """Store multiple chunk embeddings."""
+
+        if len(chunks) != len(embeddings):
+            raise ValueError(
+                "Number of chunks and embeddings must be equal."
+            )
+
+        points = [
+            PointStruct(
+                id=chunk.id,
+                vector=embedding,
+                payload=chunk.metadata,
+            )
+            for chunk, embedding in zip(chunks, embeddings)
+        ]
+
+        self.client.upsert(
+            collection_name=collection_name,
+            points=points,
+            wait=True,
+        )
+
+        print(f"Stored {len(points)} chunks.")
+
+    def query(
+        self,
+        collection_name: str,
+        query_embedding: list[float],
+        top_k: int = 5,
+    ):
+        """Search for the nearest embeddings."""
+
+        return self.client.query_points(
+            collection_name=collection_name,
+            query=query_embedding,
+            limit=top_k,
+        ).points

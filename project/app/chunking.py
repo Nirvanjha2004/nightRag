@@ -11,16 +11,32 @@ import tree_sitter_python as tspython
 from tree_sitter import Language, Parser
 
 
+from dataclasses import dataclass
+
+
 @dataclass
 class Chunk:
     id: str
     text: str
-    file_path: str
-    node_type: str          # "function_definition" or "class_definition"
-    name: str                # function/class name
-    start_line: int          # 1-indexed
-    end_line: int             # 1-indexed
 
+    file_path: str
+
+    node_type: str      # class_definition, function_definition, method_definition
+    name: str
+
+    start_line: int
+    end_line: int
+
+    @property
+    def metadata(self) -> dict:
+        return {
+            "text": self.text,
+            "file_path": self.file_path,
+            "node_type": self.node_type,
+            "name": self.name,
+            "start_line": self.start_line,
+            "end_line": self.end_line,
+        }
 
 class PythonChunker:
     def __init__(self):
