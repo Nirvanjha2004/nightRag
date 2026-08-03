@@ -5,6 +5,8 @@ from qdrant_client.models import (
     PointStruct,
 )
 
+from app.chunking import Chunk
+
 
 class VectorDB:
     def __init__(self, client: QdrantClient):

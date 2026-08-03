@@ -1,2 +1,4 @@
 tree-sitter
 tree-sitter-python
+requests
+qdrant-client

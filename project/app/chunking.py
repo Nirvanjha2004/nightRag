@@ -5,13 +5,11 @@ No nested-function handling yet, no docstring/import extraction yet.
 We'll iterate after Phase 1 verification.
 """
 
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 import tree_sitter_python as tspython
 from tree_sitter import Language, Parser
-
-
-from dataclasses import dataclass
 
 
 @dataclass
@@ -64,6 +62,7 @@ class PythonChunker:
                 name = self._get_node_name(node, source_bytes)
                 chunks.append(
                     Chunk(
+                        id=str(uuid.uuid5(uuid.NAMESPACE_URL, f"{file_path}:{node.start_point[0]}")),
                         text=text,
                         file_path=file_path,
                         node_type=node.type,
@@ -75,26 +74,3 @@ class PythonChunker:
 
         return chunks
 
-
-if __name__ == "__main__":
-    # Quick manual test — point this at any .py file in your target repo
-    import sys
-    import random
-
-    if len(sys.argv) < 2:
-        print("Usage: python chunker.py <path_to_python_file>")
-        sys.exit(1)
-
-    chunker = PythonChunker()
-    chunks = chunker.chunk_file(sys.argv[1])
-
-    print(f"Found {len(chunks)} chunks in {sys.argv[1]}\n")
-
-    # Print up to 15 random chunks for manual verification (Phase 1 gate)
-    sample = random.sample(chunks, min(15, len(chunks)))
-    for c in sample:
-        print("=" * 60)
-        print(f"[{c.node_type}] {c.name}  (lines {c.start_line}-{c.end_line})")
-        print("-" * 60)
-        print(c.text[:300] + ("..." if len(c.text) > 300 else ""))
-        print()
