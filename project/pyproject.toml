@@ -9,4 +9,5 @@ dependencies = [
     "tree-sitter-python>=0.25.0",
     "requests>=2.32.0",
     "qdrant-client>=1.10.0",
+    "groq>=1.6.0",
 ]

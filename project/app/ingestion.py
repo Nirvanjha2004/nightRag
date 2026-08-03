@@ -3,28 +3,23 @@ ingest.py — orchestration only. No embedding logic, no Qdrant logic here.
 Walks a repo, chunks every .py file, embeds chunks, stores them in Qdrant.
 
 Usage:
-    python ingest.py <repo_path> <qdrant_url> <jina_api_key> [collection_name]
+    python -m app.ingestion <repo_path> <qdrant_url> <jina_api_key> [collection_name]
+
+Offline wiring check (no keys, no server): python test_pipeline.py
 """
 
 import sys
-import uuid
 from pathlib import Path
 
 from qdrant_client import QdrantClient
 
-from chunker import PythonChunker
-from embedder import Embedder
-from vector_db import VectorDB
-
-
-def stable_point_id(chunk_id: str) -> str:
-    """Qdrant point IDs must be int or UUID — derive a deterministic UUID
-    from our readable chunk_id (file_path:start_line) so re-ingestion is
-    idempotent (same chunk -> same point id -> upsert overwrites, not duplicates)."""
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, chunk_id))
+from app.chunking import PythonChunker
+from app.embedder import Embedder
+from app.vector_db import VectorDB
 
 
 def ingest(repo_path: str, qdrant_url: str, jina_api_key: str, collection_name: str = "code_chunks"):
+    """Chunk every .py file under repo_path, embed the chunks, store them in Qdrant."""
     chunker = PythonChunker()
     embedder = Embedder(api_key=jina_api_key)
     vector_db = VectorDB(client=QdrantClient(url=qdrant_url))
@@ -37,8 +32,7 @@ def ingest(repo_path: str, qdrant_url: str, jina_api_key: str, collection_name: 
     all_chunks = []
     for file_path in py_files:
         try:
-            chunks = chunker.chunk_file(str(file_path))
-            all_chunks.extend(chunks)
+            all_chunks.extend(chunker.chunk_file(str(file_path)))
         except Exception as e:
             # Don't let one bad file kill the whole ingestion run —
             # but DO surface it loudly, don't swallow silently.
@@ -50,15 +44,9 @@ def ingest(repo_path: str, qdrant_url: str, jina_api_key: str, collection_name: 
         print("No chunks found — stopping before touching embedder/Qdrant.")
         return
 
-    # 3. Create collection (size must match your Jina model's output dim —
-    #    check this against the actual model you're using, 1536 is a placeholder
-    #    default in VectorDB and may not match jina-embeddings-v5-text-small)
-    sample_embedding = embedder.embed_query("test")
-    vector_size = len(sample_embedding)
-    print(f"Embedding dimension detected: {vector_size}")
-    vector_db.create_collection(collection_name, vector_size=vector_size)
-
-    # 4. Batch embed all chunks (one API call instead of N)
+    # 3. Embed all chunks in one batched call
+    #    ponytail: one request for the whole repo — Jina caps batches at ~2048 inputs,
+    #    so very large repos will need this looped in chunks-of-chunks.
     texts = [c.text for c in all_chunks]
     print(f"Embedding {len(texts)} chunks...")
     embeddings = embedder.embed_chunks(texts)
@@ -69,12 +57,13 @@ def ingest(repo_path: str, qdrant_url: str, jina_api_key: str, collection_name: 
             "Stopping — do not store misaligned data."
         )
 
-    # 5. Attach stable Qdrant-safe point IDs and store
-    #    (VectorDB.store_embeddings uses chunk.id as the point id directly —
-    #     we need to swap that for a UUID derived from the readable id first)
-    for c in all_chunks:
-        c.id = stable_point_id(c.id) if not _looks_like_uuid(c.id) else c.id
+    # 4. Create the collection sized to the model's real output dim.
+    #    (Chunk.id is already a deterministic UUID, valid as a Qdrant point id.)
+    vector_size = len(embeddings[0])
+    print(f"Embedding dimension detected: {vector_size}")
+    vector_db.create_collection(collection_name, vector_size=vector_size)
 
+    # 5. Store everything
     vector_db.store_embeddings(collection_name, all_chunks, embeddings)
 
     print(f"\nIngestion complete: {len(all_chunks)} chunks stored in '{collection_name}'.")
@@ -86,9 +75,19 @@ def ingest(repo_path: str, qdrant_url: str, jina_api_key: str, collection_name: 
         print("  WARNING: mismatch — investigate before trusting this collection.")
 
 
-def _looks_like_uuid(value: str) -> bool:
-    try:
-        uuid.UUID(value)
-        return True
-    except (ValueError, AttributeError):
-        return False
+def main(argv: list[str] | None = None) -> int:
+    args = argv if argv is not None else sys.argv[1:]
+
+    if len(args) not in (3, 4):
+        print(__doc__)
+        return 2
+
+    repo_path, qdrant_url, jina_api_key = args[0], args[1], args[2]
+    collection_name = args[3] if len(args) == 4 else "code_chunks"
+
+    ingest(repo_path, qdrant_url, jina_api_key, collection_name)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

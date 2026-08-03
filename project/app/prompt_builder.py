@@ -3,7 +3,7 @@ prompt_builder.py — pure formatting, no API calls, no retrieval logic here.
 Takes retrieved chunks + a question, returns a single prompt string ready for the generator.
 """
 
-from retriever import RetrievedChunk
+from app.retriever import RetrievedChunk
 
 
 SYSTEM_INSTRUCTIONS = """You are a code assistant answering questions about a codebase.

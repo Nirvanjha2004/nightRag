@@ -5,8 +5,8 @@ just wires Embedder + VectorDB together to go from a plain-text query to ranked 
 
 from dataclasses import dataclass
 
-from embedder import Embedder
-from vector_db import VectorDB
+from app.embedder import Embedder
+from app.vector_db import VectorDB
 
 
 @dataclass

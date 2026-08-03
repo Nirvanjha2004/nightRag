@@ -1,14 +1,14 @@
 """
-rag_orchestrator.py — single entry point for the full RAG pipeline.
+rag_pipeline.py — single entry point for the full RAG pipeline.
 No embedding, retrieval, prompt-formatting, or generation logic lives here directly —
 it only composes retriever.py + prompt_builder.py + generator.py in sequence.
 """
 
 from dataclasses import dataclass
 
-from retriever import Retriever, RetrievedChunk
-from prompt_builder import build_prompt
-from generator import Generator
+from app.retriever import Retriever, RetrievedChunk
+from app.prompt_builder import build_prompt
+from app.generator import Generator
 
 
 @dataclass
