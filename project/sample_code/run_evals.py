@@ -1,0 +1,113 @@
+"""
+run_evals.py — run the golden evals.jsonl dataset through the full RAG pipeline
+and score each answer with a cheap keyword-hits check.
+
+Usage (ingest first, then):
+    python run_evals.py
+    python run_evals.py --collection code_chunks --top-k 5
+
+Writes per-question results to eval_results.jsonl and prints a summary.
+"""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+from main import build_orchestrator
+
+EVALS_FILE = "evals.jsonl"
+RESULTS_FILE = "eval_results.jsonl"
+
+
+def load_evals(path: str = EVALS_FILE) -> list[dict]:
+    evals = []
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        evals.append(json.loads(line))
+    return evals
+
+
+def keyword_score(answer: str, keywords: list[str]) -> tuple[bool, list[str]]:
+    """PASS when every keyword appears in the answer (case-insensitive)."""
+    lowered = answer.lower()
+    missing = [k for k in keywords if k.lower() not in lowered]
+    return (not missing, missing)
+
+
+def evaluate(orchestrator, evals: list[dict]) -> tuple[list[dict], int]:
+    results = []
+    passed = 0
+
+    for ev in evals:
+        print(f"\n--- {ev['id']} ---")
+        print(f"Q: {ev['question']}")
+
+        try:
+            result = orchestrator.ask(ev["question"])
+            answer = result.answer
+        except Exception as e:
+            print(f"ERROR: {type(e).__name__}: {e}")
+            results.append({**ev, "answer": "", "sources": [], "pass": False, "missing": ["ERROR"]})
+            continue
+
+        ok, missing = keyword_score(answer, ev.get("keywords", []))
+        passed += ok
+
+        print("PASS" if ok else f"FAIL — missing keywords: {missing}")
+        print(f"A: {answer[:400]}")
+        sources = [
+            f"{c.file_path}:{c.node_type} '{c.name}' (lines {c.start_line}-{c.end_line})"
+            for c in result.retrieved_chunks
+        ]
+        print(f"Sources: {', '.join(sources) if sources else '(none)'}")
+
+        results.append(
+            {
+                **ev,
+                "answer": answer,
+                "sources": sources,
+                "pass": ok,
+                "missing": missing,
+            }
+        )
+
+    return results, passed
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Run the golden eval dataset through the RAG pipeline.")
+    parser.add_argument("--collection", default="code_chunks")
+    parser.add_argument("--qdrant-dir", default="qdrant_data")
+    parser.add_argument("--model", default="openai/gpt-oss-120b")
+    parser.add_argument("--top-k", type=int, default=5)
+    args = parser.parse_args(argv)
+
+    orchestrator = build_orchestrator(
+        qdrant_dir=args.qdrant_dir,
+        collection=args.collection,
+        model=args.model,
+        top_k=args.top_k,
+    )
+
+    evals = load_evals()
+    if not evals:
+        print(f"No eval entries found in {EVALS_FILE}.")
+        return 1
+
+    results, passed = evaluate(orchestrator, evals)
+
+    with open(RESULTS_FILE, "w", encoding="utf-8") as f:
+        for r in results:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+    print(f"\n{'=' * 50}")
+    print(f"SCORE: {passed}/{len(results)} passed")
+    print(f"Details written to {RESULTS_FILE}")
+    return 0 if passed == len(results) else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -96,6 +96,10 @@ uv.lock
 
 node_modules/
 *.tsbuildinfo
+
+# Local embedded Qdrant store + eval output
+qdrant_data/
+eval_results.jsonl
 .cache/
 .parcel-cache/
 .eslintcache
