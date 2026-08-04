@@ -27,11 +27,9 @@ class RagOrchestrator:
 
     def ask(self, question: str) -> RagResult:
         """Full pipeline: retrieve -> build prompt -> generate answer."""
-
         chunks = self.retriever.retrieve(question, top_k=self.top_k)
         prompt = build_prompt(question, chunks)
         answer = self.generator.generate(prompt)
-
         return RagResult(
             question=question,
             answer=answer,

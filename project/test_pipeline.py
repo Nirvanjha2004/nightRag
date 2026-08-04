@@ -138,6 +138,45 @@ def _check_embedder_retries() -> None:
     print("OK: embedder mounts retry adapter for transient errors")
 
 
+def _check_eval_rows() -> None:
+    """run_evals reads benchmarks/evals.jsonl and stores the dataset schema."""
+    from types import SimpleNamespace
+
+    import run_evals
+    from app.retriever import RetrievedChunk
+
+    evals = run_evals.load_evals()
+    assert len(evals) >= 2, f"expected benchmark entries, got {len(evals)}"
+
+    chunks = [
+        RetrievedChunk(
+            text="chunk one", file_path="a.py", node_type="function_definition",
+            name="f1", start_line=1, end_line=5, score=0.9,
+        ),
+        RetrievedChunk(
+            text="chunk two", file_path="b.py", node_type="class_definition",
+            name="C", start_line=10, end_line=20, score=0.8,
+        ),
+    ]
+
+    class FakeOrchestrator:
+        def ask(self, question: str):
+            return SimpleNamespace(answer="fake answer", retrieved_chunks=chunks)
+
+    results, passed = run_evals.evaluate(FakeOrchestrator(), evals[:2])
+    assert passed == 0  # fake answer won't hit keywords; we only check the schema here
+
+    expected_keys = {"user_input", "response", "retrieved_contexts", "reference"}
+    for row, ev in zip(results, evals[:2]):
+        assert set(row) == expected_keys, f"row keys {set(row)} != {expected_keys}"
+        assert row["user_input"] == ev["question"]
+        assert row["reference"] == ev["expected_answer"]
+        assert row["response"] == "fake answer"
+        assert row["retrieved_contexts"] == ["chunk one", "chunk two"]
+
+    print(f"OK: evaluate() stores dataset rows for {len(results)} benchmark questions")
+
+
 def _check_prompt_cap() -> None:
     """Prompt builder truncates chunks so the total fits under the cap."""
     from app.prompt_builder import build_prompt, _MAX_PROMPT_CHARS, _truncate
@@ -181,3 +220,4 @@ if __name__ == "__main__":
     _check_generator_retries()
     _check_embedder_retries()
     _check_prompt_cap()
+    _check_eval_rows()

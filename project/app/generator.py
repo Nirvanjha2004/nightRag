@@ -69,7 +69,7 @@ class Generator:
                     temperature=temperature,
                     max_tokens=max_tokens,
                 )
-                return response.choices[0].message.content
+                return response.choices[0].message.content   
             except APIStatusError as error:
                 if not _is_rate_limit_error(error):
                     raise

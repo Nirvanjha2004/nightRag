@@ -3,3 +3,4 @@ tree-sitter-python
 requests
 qdrant-client
 groq
+ragas

@@ -1,12 +1,20 @@
 """
-run_evals.py — run the golden evals.jsonl dataset through the full RAG pipeline
-and score each answer with a cheap keyword-hits check.
+run_evals.py — run the golden benchmark (benchmarks/evals.jsonl) through the
+full RAG pipeline and store one dataset row per question:
+
+    {
+        "user_input": question,
+        "response": answer,
+        "retrieved_contexts": [retrieved chunk texts],
+        "reference": expected_answer,
+    }
+
+Rows are written to eval_results.jsonl; a keyword-hit PASS/FAIL summary is
+printed to the console as a cheap live check.
 
 Usage (ingest first, then):
     python run_evals.py
     python run_evals.py --collection code_chunks --top-k 5
-
-Writes per-question results to eval_results.jsonl and prints a summary.
 """
 
 import argparse
@@ -16,7 +24,7 @@ from pathlib import Path
 
 from main import build_orchestrator
 
-EVALS_FILE = "evals.jsonl"
+EVALS_FILE = "benchmarks/evals.jsonl"
 RESULTS_FILE = "eval_results.jsonl"
 
 
@@ -83,7 +91,14 @@ def evaluate(orchestrator, evals: list[dict]) -> tuple[list[dict], int]:
             answer = result.answer
         except Exception as e:
             print(f"ERROR: {type(e).__name__}: {e}")
-            results.append({**ev, "answer": "", "sources": [], "pass": False, "missing": ["ERROR"]})
+            results.append(
+                {
+                    "user_input": ev["question"],
+                    "response": "",
+                    "retrieved_contexts": [],
+                    "reference": ev["expected_answer"],
+                }
+            )
             continue
 
         ok, missing = keyword_score(answer, ev.get("keywords", []))
@@ -99,11 +114,10 @@ def evaluate(orchestrator, evals: list[dict]) -> tuple[list[dict], int]:
 
         results.append(
             {
-                **ev,
-                "answer": answer,
-                "sources": sources,
-                "pass": ok,
-                "missing": missing,
+                "user_input": ev["question"],
+                "response": answer,
+                "retrieved_contexts": [c.text for c in result.retrieved_chunks],
+                "reference": ev["expected_answer"],
             }
         )
 
