@@ -30,10 +30,43 @@ def load_evals(path: str = EVALS_FILE) -> list[dict]:
     return evals
 
 
+# Hyphen look-alikes the model occasionally emits instead of a plain hyphen or a
+# space (e.g. non-breaking hyphen U+2011 in 'double‐width'). Fold them to a
+# space on both sides so they can't cause false FAILs.
+_DASH_CHARS = {
+    "\u00ad",  # soft hyphen
+    "\u2010",  # hyphen
+    "\u2011",  # non-breaking hyphen
+    "\u2012",  # figure dash
+    "\u2013",  # en dash
+    "\u2014",  # em dash
+    "\u2015",  # horizontal bar
+    "\u2212",  # minus sign
+}
+
+
+def _normalize(text: str) -> str:
+    """Fold hyphen variants to spaces: 'double‐width' -> 'double width'."""
+    return "".join(" " if ch in _DASH_CHARS else ch for ch in text)
+
+
 def keyword_score(answer: str, keywords: list[str]) -> tuple[bool, list[str]]:
-    """PASS when every keyword appears in the answer (case-insensitive)."""
-    lowered = answer.lower()
-    missing = [k for k in keywords if k.lower() not in lowered]
+    """PASS when every keyword appears in the answer (case-insensitive).
+
+    Hyphen variants in both the answer and the keyword are folded to spaces
+    before matching, so:
+      - keyword 'double-width'  matches answer 'double‑width' (NB hyphen)
+      - keyword 'square-brackets' matches answer 'square‑brackets'
+      - keyword 'square brackets' also matches 'square‑brackets'
+    """
+    lowered = _normalize(answer.lower())
+    # Fold hyphens in keywords to spaces too, so a keyword like 'double-width'
+    # can match when the model writes 'double‑width' (which normalizes to 'double width').
+    missing = [
+        k
+        for k in keywords
+        if _normalize(k.lower()).replace("-", " ") not in lowered
+    ]
     return (not missing, missing)
 
 

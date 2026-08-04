@@ -1,4 +1,6 @@
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 
 class Embedder:
@@ -13,6 +15,17 @@ class Embedder:
             "Content-Type": "application/json",
         }
 
+        # Retry up to 3 times on transient network/SSL errors and 429/503.
+        retry_strategy = Retry(
+            total=3,
+            backoff_factor=2.0,  # 2s, 4s, 8s
+            status_forcelist=frozenset({429, 503}),
+            allowed_methods=frozenset({"POST"}),
+            raise_on_status=True,
+        )
+        self._session = requests.Session()
+        self._session.mount("https://", HTTPAdapter(max_retries=retry_strategy))
+
     def _embed(
         self,
         texts: list[str],
@@ -20,7 +33,7 @@ class Embedder:
     ) -> list[list[float]]:
         """Internal helper for generating embeddings."""
 
-        response = requests.post(
+        response = self._session.post(
             self.URL,
             headers=self.headers,
             json={
