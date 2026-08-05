@@ -1,5 +1,5 @@
 """
-run_ragas.py — score eval_results.jsonl (from run_evals.py) with RAGAS.
+run_ragas.py — score eval_results.jsonl (from run_evals.py) with RAGAS using Ollama (Qwen3 8B).
 
 Usage:
     python run_ragas.py            # score everything
@@ -15,21 +15,16 @@ import types
 RESULTS_FILE = "eval_results.jsonl"
 OUTPUT_FILE = "ragas_results.jsonl"
 
-GROQ_BASE_URL = "https://api.groq.com/openai/v1"
-JINA_BASE_URL = "https://api.jina.ai/v1"
-JUDGE_MODEL = "openai/gpt-oss-120b"
+OLLAMA_BASE_URL = "http://localhost:11434/v1"
+JUDGE_MODEL = "qwen3:8b"
 EMBED_MODEL = "jina-embeddings-v5-text-small"
 
-# Your Groq tier caps at 8k tokens/minute, and a single retrieved chunk (e.g.
-# a big class) can exceed that alone. Clip each context so judge prompts stay
-# comfortably inside budget. This one IS load-bearing — remove it and you're
-# back to the 413 errors from run_evals.py.
+# Clip each context so judge prompts stay comfortably inside budget.
 MAX_CONTEXT_CHARS = 1200
 
 
 # ragas unconditionally tries to import VertexAI from langchain_community,
-# which no longer ships those modules. We never use VertexAI — stub it out
-# so the import doesn't crash. Also load-bearing; nothing to simplify here.
+# which no longer ships those modules. Stub it out so the import doesn't crash.
 def _stub_vertexai():
     for fullname, attr in [
         ("langchain_community.chat_models.vertexai", "ChatVertexAI"),
@@ -46,7 +41,12 @@ from openai import AsyncOpenAI, OpenAI
 from ragas import EvaluationDataset, evaluate
 from ragas.embeddings import OpenAIEmbeddings
 from ragas.llms import llm_factory
-from ragas.metrics.collections import answer_correctness, context_precision, context_recall, faithfulness
+from ragas.metrics import (
+    answer_correctness,
+    context_precision,
+    context_recall,
+    faithfulness,
+)
 from ragas.run_config import RunConfig
 
 from app.config import load_env
@@ -74,35 +74,35 @@ def main():
     limit = int(sys.argv[1]) if len(sys.argv) > 1 else None
 
     load_env()
-    if not os.environ.get("groq_api_key") or not os.environ.get("jina_api_key"):
-        print("Missing groq_api_key or jina_api_key in .env")
+    if not os.environ.get("jina_api_key"):
+        print("Missing jina_api_key in .env (required for Jina embeddings)")
         return 1
 
     rows = load_rows(limit)
     if not rows:
         print(f"No scorable rows in {RESULTS_FILE}")
         return 1
-    print(f"Scoring {len(rows)} rows...")
+    print(f"Scoring {len(rows)} rows using local Ollama ({JUDGE_MODEL})...")
 
+    # Point OpenAI client to Ollama's local endpoint
     llm = llm_factory(
         JUDGE_MODEL,
-        client=OpenAI(api_key=os.environ["groq_api_key"], base_url=GROQ_BASE_URL),
+        client=OpenAI(api_key="ollama", base_url=OLLAMA_BASE_URL),
         max_tokens=4096,
     )
+
     embeddings = OpenAIEmbeddings(
-        client=AsyncOpenAI(api_key=os.environ["jina_api_key"], base_url=JINA_BASE_URL),
+        client=AsyncOpenAI(api_key=os.environ["jina_api_key"], base_url="https://api.jina.ai/v1"),
         model=EMBED_MODEL,
     )
 
-    # max_workers=1: with only 8k TPM, concurrency just causes more 429s, not
-    # more speed. max_retries/max_wait kept low so a genuinely stuck call
-    # fails fast instead of grinding silently for minutes (see: earlier hang).
+    # evaluate() automatically binds llm and embeddings to the metrics
     result = evaluate(
         EvaluationDataset.from_list(rows),
         metrics=METRICS,
         llm=llm,
         embeddings=embeddings,
-        run_config=RunConfig(timeout=60, max_retries=2, max_wait=15, max_workers=1),
+        run_config=RunConfig(timeout=120, max_retries=2, max_wait=15, max_workers=1),
     )
 
     out_rows = [
