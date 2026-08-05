@@ -10,11 +10,13 @@ full RAG pipeline and store one dataset row per question:
     }
 
 Rows are written to eval_results.jsonl; a keyword-hit PASS/FAIL summary is
-printed to the console as a cheap live check.
+printed to the console as a cheap live check. For the authoritative scores,
+run run_ragas.py on the generated file (context recall, context precision,
+answer correctness, faithfulness).
 
 Usage (ingest first, then):
     python run_evals.py
-    python run_evals.py --collection code_chunks --top-k 5
+    python run_ragas.py
 """
 
 import argparse
