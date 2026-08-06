@@ -17,8 +17,8 @@ class Embedder:
 
         # Retry up to 3 times on transient network/SSL errors and 429/503.
         retry_strategy = Retry(
-            total=3,
-            backoff_factor=2.0,  # 2s, 4s, 8s
+            total=10,
+            backoff_factor=10.0,  # 2s, 4s, 8s
             status_forcelist=frozenset({429, 503}),
             allowed_methods=frozenset({"POST"}),
             raise_on_status=True,
@@ -44,6 +44,9 @@ class Embedder:
             },
         )
 
+        if not response.ok:
+            print(response.status_code)
+            print(response.text)
         response.raise_for_status()
 
         return [
@@ -60,12 +63,19 @@ class Embedder:
         )[0]
 
     def embed_chunks(self, chunks: list[str]) -> list[list[float]]:
-        """Generate embeddings for multiple document chunks."""
-
-        return self._embed(
-            texts=chunks,
-            task="retrieval.passage",
-        )
+        """Generate embeddings for multiple document chunks in batches."""
+        embeddings = []
+        BATCH_SIZE = 128
+        for i in range(0, len(chunks), BATCH_SIZE):
+            batch = chunks[i:i + BATCH_SIZE]
+            embeddings.extend(
+                self._embed(
+                    texts=batch,
+                    task="retrieval.passage",
+                )
+            )
+            print(f"Embedded {min(i + BATCH_SIZE, len(chunks))}/{len(chunks)} chunks")
+        return embeddings
 
     def embed_query(self, query: str) -> list[float]:
         """Generate an embedding for a search query."""
