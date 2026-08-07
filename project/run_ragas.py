@@ -1,12 +1,11 @@
 """
-run_ragas.py — score eval_results.jsonl (from run_evals.py) with RAGAS.
+run_ragas.py — score eval_results.jsonl (from run_evals.py) with RAGAS using Ollama.
 
-Checkpointed + rate-limit aware:
+Checkpointed:
+- Uses local Ollama for the LLM judge (Qwen 2.5 3B).
+- Uses Jina AI API for embeddings (kept as requested).
 - Writes each batch to OUTPUT_FILE immediately and skips already-scored rows
   on the next run, so a crash never loses prior progress.
-- On a 429/TPM rate-limit error, sleeps and retries the same batch (transient,
-  self-resolving). On anything else (DNS blip, real crash), stops cleanly and
-  tells you to rerun — everything already scored stays on disk.
 
 Usage:
     python run_ragas.py            # score everything not yet scored
@@ -23,30 +22,26 @@ import types
 RESULTS_FILE = "eval_results.jsonl"
 OUTPUT_FILE = "ragas_results.jsonl"
 
-GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+# --- LOCAL OLLAMA & REMOTE JINA CONFIG ---
+OLLAMA_BASE_URL = "http://localhost:11434/v1"
 JINA_BASE_URL = "https://api.jina.ai/v1"
-JUDGE_MODEL = "openai/gpt-oss-120b"
+
+# Fast, lightweight model fitting easily inside 4GB VRAM
+JUDGE_MODEL = "qwen2.5:3b"  # Alternative: "llama3.2:3b"
 EMBED_MODEL = "jina-embeddings-v5-text-small"
 
-# 8K TPM / 1K RPD on the free tier for this model. A single retrieved chunk
-# (e.g. a big class) can eat a big chunk of that alone. Clip each context so
-# judge prompts stay comfortably inside budget. Load-bearing — remove it and
-# you're back to 413s.
-MAX_CONTEXT_CHARS = 1200
+# Clip context lengths to keep inference speed high on local GPU
+# MAX_CONTEXT_CHARS = 1200
 
-# 2 rows x 4 metrics = 8 jobs/batch. Real-world log showed ~5-6 jobs alone
-# ate 6799/8000 TPM, so keep batches small enough to stay under the ceiling
-# even with a retry or two mixed in.
+# Local execution batch configuration
 BATCH_SIZE = 2
-BATCH_COOLDOWN_SECONDS = 20   # let the rolling TPM window breathe between batches
-MAX_BATCH_RETRIES = 3         # retries within one batch, only for rate-limit errors
-RATE_LIMIT_WAIT_SECONDS = 65  # TPM window is 60s; give it margin
+BATCH_COOLDOWN_SECONDS = 1    # Minimal delay needed since local Ollama has no rate limit
+MAX_BATCH_RETRIES = 3
+RATE_LIMIT_WAIT_SECONDS = 5
 
 
 def _stub_vertexai():
-    # ragas unconditionally tries to import VertexAI from langchain_community,
-    # which no longer ships those modules. We never use VertexAI — stub it out
-    # so the import doesn't crash. Load-bearing; nothing to simplify here.
+    # ragas unconditionally tries to import VertexAI from langchain_community
     for fullname, attr in [
         ("langchain_community.chat_models.vertexai", "ChatVertexAI"),
         ("langchain_community.llms.vertexai", "VertexAI"),
@@ -73,11 +68,11 @@ METRICS = [context_recall, context_precision, faithfulness, answer_correctness]
 def load_rows(limit: int | None = None) -> list[dict]:
     rows = [json.loads(line) for line in open(RESULTS_FILE, encoding="utf-8") if line.strip()]
     rows = [r for r in rows if r.get("response")]  # skip empty answers, RAGAS can't score those
-    for r in rows:
-        r["retrieved_contexts"] = [
-            c if len(c) <= MAX_CONTEXT_CHARS else c[:MAX_CONTEXT_CHARS] + "...(truncated)"
-            for c in r.get("retrieved_contexts", [])
-        ]
+    # for r in rows:
+    #     r["retrieved_contexts"] = [
+    #         c if len(c) <= MAX_CONTEXT_CHARS else c[:MAX_CONTEXT_CHARS] + "...(truncated)"
+    #         for c in r.get("retrieved_contexts", [])
+    #     ]
     return rows[:limit] if limit else rows
 
 
@@ -92,7 +87,7 @@ def load_scored_questions() -> set[str]:
                 try:
                     scored.add(json.loads(line)["user_input"])
                 except (json.JSONDecodeError, KeyError):
-                    continue  # ignore a corrupt trailing line, don't crash resume
+                    continue  # ignore a corrupt trailing line
     return scored
 
 
@@ -101,15 +96,8 @@ def clean(value):
     return None if value is None or (isinstance(value, float) and not math.isfinite(value)) else value
 
 
-def _is_rate_limit_error(e: Exception) -> bool:
-    msg = str(e)
-    return "429" in msg or "rate_limit_exceeded" in msg or "tokens per minute" in msg
-
-
 def run_batch_with_backoff(batch, llm, embeddings, run_config):
-    """Run one batch. On a rate-limit error, sleep and retry the SAME batch
-    (transient, self-resolving). On anything else (DNS blip, real crash),
-    raise immediately — that's the caller's job to handle cleanly."""
+    """Run one batch with retry logic."""
     for attempt in range(1, MAX_BATCH_RETRIES + 1):
         try:
             return evaluate(
@@ -120,16 +108,15 @@ def run_batch_with_backoff(batch, llm, embeddings, run_config):
                 run_config=run_config,
             )
         except Exception as e:
-            if _is_rate_limit_error(e) and attempt < MAX_BATCH_RETRIES:
-                print(f"  rate limited (attempt {attempt}/{MAX_BATCH_RETRIES}), waiting {RATE_LIMIT_WAIT_SECONDS}s...")
+            if attempt < MAX_BATCH_RETRIES:
+                print(f"  batch error (attempt {attempt}/{MAX_BATCH_RETRIES}): {e}, retrying in {RATE_LIMIT_WAIT_SECONDS}s...")
                 time.sleep(RATE_LIMIT_WAIT_SECONDS)
                 continue
             raise
 
 
 def print_summary():
-    """Read OUTPUT_FILE fresh and print current means — reflects all runs so
-    far, not just this one."""
+    """Read OUTPUT_FILE fresh and print current means."""
     if not os.path.exists(OUTPUT_FILE):
         return
     rows = [json.loads(line) for line in open(OUTPUT_FILE, encoding="utf-8") if line.strip()]
@@ -144,8 +131,9 @@ def main():
     limit = int(sys.argv[1]) if len(sys.argv) > 1 else None
 
     load_env()
-    if not os.environ.get("groq_api_key") or not os.environ.get("jina_api_key"):
-        print("Missing groq_api_key or jina_api_key in .env")
+    # Only Jina API key is required now (Ollama runs locally)
+    if not os.environ.get("jina_api_key"):
+        print("Missing jina_api_key in .env")
         return 1
 
     rows = load_rows(limit)
@@ -157,18 +145,21 @@ def main():
         print_summary()
         return 0
 
-    print(f"Scoring {len(rows)} rows (skipped {len(already_scored)} already scored)...")
+    print(f"Scoring {len(rows)} rows using Ollama ({JUDGE_MODEL}) & Jina Embeddings...")
 
+    # Configure LLM to point to local Ollama server via OpenAI client wrapper
     llm = llm_factory(
         JUDGE_MODEL,
-        client=OpenAI(api_key=os.environ["groq_api_key"], base_url=GROQ_BASE_URL),
-        max_tokens=4096,
+        client=OpenAI(api_key="ollama", base_url=OLLAMA_BASE_URL),
+        max_tokens=2048,
     )
+    
+    # Configure Jina Embeddings as before
     embeddings = OpenAIEmbeddings(
         client=AsyncOpenAI(api_key=os.environ["jina_api_key"], base_url=JINA_BASE_URL),
         model=EMBED_MODEL,
     )
-    run_config = RunConfig(timeout=60, max_retries=2, max_wait=15, max_workers=1)
+    run_config = RunConfig(timeout=120, max_retries=2, max_wait=15, max_workers=1)
 
     scored_this_run = 0
     with open(OUTPUT_FILE, "a", encoding="utf-8") as f_out:
@@ -179,19 +170,19 @@ def main():
             except Exception as e:
                 print(f"\nBatch {i // BATCH_SIZE + 1} failed permanently: {e}")
                 print(f"Stopping here — {scored_this_run} rows scored and saved this run.")
-                print("Rerun the script (same command) later to resume from where you left off.")
+                print("Rerun the script to resume from where you left off.")
                 break
 
             for row, scores in zip(batch, result.scores):
                 out = {**row, **{m.name: clean(scores.get(m.name)) for m in METRICS}}
                 f_out.write(json.dumps(out, ensure_ascii=False) + "\n")
-                f_out.flush()  # persist immediately — don't wait for the whole run to finish
+                f_out.flush()
                 scored_this_run += 1
 
             print(f"  progress: {min(i + BATCH_SIZE, len(rows))}/{len(rows)} this run")
 
             if i + BATCH_SIZE < len(rows):
-                time.sleep(BATCH_COOLDOWN_SECONDS)  # let the TPM window breathe before next batch
+                time.sleep(BATCH_COOLDOWN_SECONDS)
 
     print(f"\nScored {scored_this_run} new rows this run. Written to {OUTPUT_FILE}")
     print_summary()

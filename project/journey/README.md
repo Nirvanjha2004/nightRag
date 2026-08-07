@@ -10,8 +10,14 @@ Every time we change something and re-run the benchmark, add a new numbered entr
 | Run | Date | Entry | Score | Δ | What changed |
 |-----|------|-------|-------|---|--------------|
 | 01 | 2026-08-04 | [01-baseline-30-50.md](01-baseline-30-50.md) | **30/50 (60%)** | — | Baseline — no changes, this is the starting point |
+| 02 | 2026-08-06 | [02-ragas-eval-qwen3b.md](02-ragas-eval-qwen3b.md) | RAGAS: recall **0.80** / prec **0.90** / corr **0.70** / faith **0.34** (20Q) | — | First RAGAS quality eval — local Ollama `qwen2.5:3b` judge + Jina embeddings (different metric, not comparable to the X/50 score) |
 
-_How to read a row: Score = keyword-hit PASS count / 50 questions. Δ = change vs previous run._
+_How to read a row: Score = keyword-hit PASS count / 50 questions (run 01) or RAGAS metric means over the
+20-question set (run 02). Δ = change vs previous run._
+
+> ℹ️ **Dataset note:** `benchmarks/evals.jsonl` was trimmed from 50 → 20 questions (E01–E20) in commit
+> `1a78cb8` ("Remove outdated eval test cases"). Run 01 was scored on the original 50; run 02 covers the
+> current 20.
 
 ## Pre-tracking history (for context, not official runs)
 
@@ -24,10 +30,14 @@ _How to read a row: Score = keyword-hit PASS count / 50 questions. Δ = change v
 ## How the benchmark works
 
 ```
-benchmarks/evals.jsonl     50 questions about the `rich` codebase (Q + expected_answer + keywords)
+benchmarks/evals.jsonl     20 questions about the `rich` codebase (Q + expected_answer + keywords)
 run_evals.py               runs each question through the full RAG pipeline
 eval_results.jsonl         one row per question: {user_input, response, retrieved_contexts, reference}
-SCORE                     printed at the end of each run:  keyword-hit PASS / 50
+SCORE                     printed at the end of each run:  keyword-hit PASS / N questions
+
+Optional quality layer (RAGAS, via local Ollama judge + Jina embeddings):
+run_ragas.py               scores eval_results.jsonl → ragas_results.jsonl (context_recall,
+                          context_precision, faithfulness, answer_correctness)
 ```
 
 Run it with:
@@ -100,5 +110,6 @@ Prioritized hypotheses to test in future runs — each will get its own journal 
 | 7 | **Module-level context chunks** (file header / imports / docstrings) | retrieval gaps | Medium |
 | 8 | **Query rewriting** for symbol-heavy questions (e.g. append `class_definition`/`function_definition`) | retrieval gaps | Low–Medium |
 | 9 | **Better generation**: higher `max_tokens`, stronger model or higher TPM tier | answer completeness | Medium |
+| 10 | **Upgrade the RAGAS judge** (7B+ local or Groq `gpt-oss-120b`) + `max_tokens=4096`; fix deprecated `ragas.metrics` imports | faithfulness metric trustworthiness (see [02-ragas-eval-qwen3b.md](02-ragas-eval-qwen3b.md)) | High |
 
-See [01-baseline-30-50.md](01-baseline-30-50.md) for the full analysis behind these.
+See [01-baseline-30-50.md](01-baseline-30-50.md) and [02-ragas-eval-qwen3b.md](02-ragas-eval-qwen3b.md) for the analysis behind these.
