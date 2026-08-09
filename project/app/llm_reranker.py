@@ -50,10 +50,12 @@ Respond with ONLY a JSON object mapping each candidate number to its score, like
 # Code chunks can be long (whole classes); relevance judgment doesn't need the
 # full body — the header + start of the text is enough. Truncating keeps the
 # scoring prompts small (cheap, fast, less TPM pressure on the free tier).
-_MAX_CHUNK_CHARS = 700
+# Shared with app/corrective_rag.py (the CRAG evaluator presents chunks the
+# same way), hence public names.
+MAX_CHUNK_CHARS = 700
 
 
-def _format_chunk(index: int, chunk: RetrievedChunk, max_chars: int = _MAX_CHUNK_CHARS) -> str:
+def format_chunk(index: int, chunk: RetrievedChunk, max_chars: int = MAX_CHUNK_CHARS) -> str:
     """One candidate's presentation: identity header + (truncated) code text."""
     text = chunk.text
     if max_chars and len(text) > max_chars:
@@ -122,7 +124,7 @@ class LLMReranker:
         candidate_k: int = 10,
         batch_size: int = 5,
         min_score: float | None = None,
-        max_chunk_chars: int = _MAX_CHUNK_CHARS,
+        max_chunk_chars: int = MAX_CHUNK_CHARS,
     ):
         self.base_retriever = base_retriever
         self.generator = generator
@@ -191,7 +193,7 @@ class LLMReranker:
         for start in range(0, len(candidates), self.batch_size):
             batch = candidates[start:start + self.batch_size]
             numbered = "\n\n".join(
-                _format_chunk(i, chunk, self.max_chunk_chars)
+                format_chunk(i, chunk, self.max_chunk_chars)
                 for i, chunk in enumerate(batch, start=start + 1)
             )
             user_prompt = (
@@ -199,11 +201,14 @@ class LLMReranker:
                 f"Candidate chunks:\n{numbered}\n\n"
                 "Return the score map as JSON now."
             )
+            # 1024 budget, not 256: gpt-oss-120b is a reasoning model — its hidden
+            # reasoning can consume a 256-token cap entirely, yielding an EMPTY
+            # score map that silently degrades to base order (seen live, 2026-08-09).
             response = self.generator.generate(
                 user_prompt,
                 system_prompt=_RERANK_SYSTEM_PROMPT,
                 temperature=0.0,  # deterministic relevance ratings
-                max_tokens=256,
+                max_tokens=1024,
             )
             scores.update(parse_scores(response))
 

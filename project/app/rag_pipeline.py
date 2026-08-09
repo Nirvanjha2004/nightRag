@@ -28,6 +28,12 @@ class RagResult:
     answer: str
     retrieved_chunks: list[RetrievedChunk]
     prompt: str  # kept for debugging/tracing — see what was actually sent to the LLM
+    # Corrective-RAG trace (all None/0 when the corrective orchestrator is not
+    # used) — lets main.py / run_evals.py report what the pipeline decided.
+    verdict: str | None = None            # "correct" | "ambiguous" | "incorrect"
+    rewritten_query: str | None = None    # query used for the corrective round
+    corrective_rounds: int = 0            # extra retrieval rounds performed
+    refinement: str | None = None         # knowledge-refinement note, if any
 
 
 class RagOrchestrator:

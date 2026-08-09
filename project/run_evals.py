@@ -19,7 +19,10 @@ Usage (ingest first, then):
     python run_ragas.py
 
 The LLM reranker is on by default (see main.build_orchestrator) — pass
---no-rerank to evaluate the raw hybrid retrieval path.
+--no-rerank to evaluate the raw hybrid retrieval path. Corrective RAG is also
+on by default (retrieval evaluator + query rewrite + knowledge refinement) —
+pass --no-crag to evaluate plain reranked RAG. Each row records the CRAG
+verdict in "crag_verdict" (None when CRAG is off).
 """
 
 import argparse
@@ -102,6 +105,7 @@ def evaluate(orchestrator, evals: list[dict]) -> tuple[list[dict], int]:
                     "response": "",
                     "retrieved_contexts": [],
                     "reference": ev["expected_answer"],
+                    "crag_verdict": None,
                 }
             )
             continue
@@ -116,6 +120,16 @@ def evaluate(orchestrator, evals: list[dict]) -> tuple[list[dict], int]:
             for c in result.retrieved_chunks
         ]
         print(f"Sources: {', '.join(sources) if sources else '(none)'}")
+        verdict = getattr(result, "verdict", None)
+        if verdict:
+            trace = f"  CRAG: verdict={verdict}, rounds={getattr(result, 'corrective_rounds', 0)}"
+            rewritten = getattr(result, "rewritten_query", None)
+            refinement = getattr(result, "refinement", None)
+            if rewritten:
+                trace += f", rewritten={rewritten!r}"
+            if refinement:
+                trace += f", {refinement}"
+            print(trace)
 
         results.append(
             {
@@ -123,6 +137,7 @@ def evaluate(orchestrator, evals: list[dict]) -> tuple[list[dict], int]:
                 "response": answer,
                 "retrieved_contexts": [c.text for c in result.retrieved_chunks],
                 "reference": ev["expected_answer"],
+                "crag_verdict": verdict,
             }
         )
 
@@ -130,6 +145,11 @@ def evaluate(orchestrator, evals: list[dict]) -> tuple[list[dict], int]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Windows consoles default to cp1252 and CRASH printing exotic model output
+    # (e.g. U+202F narrow no-break space) — replace instead of raising.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
+
     parser = argparse.ArgumentParser(description="Run the golden eval dataset through the RAG pipeline.")
     parser.add_argument("--collection", default="code_chunks")
     parser.add_argument("--qdrant-dir", default="qdrant_data")
@@ -138,6 +158,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--candidate-k", type=int, default=10)
     parser.add_argument("--min-score", type=float, default=None)
     parser.add_argument("--no-rerank", action="store_true")
+    parser.add_argument("--no-crag", action="store_true")
     args = parser.parse_args(argv)
 
     orchestrator = build_orchestrator(
@@ -148,6 +169,7 @@ def main(argv: list[str] | None = None) -> int:
         rerank=not args.no_rerank,
         candidate_k=args.candidate_k,
         min_score=args.min_score,
+        crag=not args.no_crag,
     )
 
     evals = load_evals()

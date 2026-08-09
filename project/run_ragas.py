@@ -217,6 +217,11 @@ def print_summary():
 
 
 def main():
+    # Same Windows-console guard as run_evals.py — replace exotic chars instead
+    # of crashing on cp1252 (question snippets are printed during scoring).
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
+
     limit = int(sys.argv[1]) if len(sys.argv) > 1 else None
 
     load_env()

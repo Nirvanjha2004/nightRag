@@ -20,6 +20,12 @@ Usage:
         --candidate-k <n>     Chunks fetched before LLM reranking (default: 10)
         --min-score <x>       Drop reranked chunks rated below x (1-5); unset = keep top_k
         --no-rerank           Skip the LLM reranker (hybrid RRF only)
+        --no-crag             Skip corrective RAG (retrieval evaluator + rewrite)
+
+    Corrective RAG (default on): an LLM grades the retrieved chunks
+    correct/ambiguous/incorrect; ambiguous/incorrect retrievals trigger a query
+    rewrite + re-retrieval, and chunks graded irrelevant are dropped from the
+    prompt (knowledge refinement). Pass --no-crag for plain reranked RAG.
 
     Run ingestion FIRST to build the collection:
         python -m app.ingestion sample_code --local
@@ -35,6 +41,7 @@ from app.bm25_retriever import BM25Retriever
 from app.config import load_env
 from app.embedder import Embedder
 from app.generator import Generator
+from app.corrective_rag import CorrectiveRagOrchestrator
 from app.hybrid_retriever import HybridRetriever
 from app.llm_reranker import LLMReranker
 from app.rag_pipeline import RagOrchestrator
@@ -55,6 +62,7 @@ def build_orchestrator(
     rerank: bool = True,
     candidate_k: int = 10,
     min_score: float | None = None,
+    crag: bool = True,
 ) -> RagOrchestrator:
     """Wire the full pipeline: .env keys + local Qdrant -> RagOrchestrator.
 
@@ -62,6 +70,12 @@ def build_orchestrator(
     (LLMReranker): it fetches candidate_k candidates, scores each 1-5 against
     the query, and returns the best top_k. Pass rerank=False for the raw
     hybrid path.
+
+    By default the reranked result is then wrapped in CorrectiveRagOrchestrator:
+    an LLM grades the retrieved chunks, triggers a query rewrite + re-retrieval
+    when retrieval is ambiguous/incorrect, and drops chunks graded irrelevant
+    before generation (knowledge refinement). Pass crag=False for plain
+    reranked RAG.
     """
     load_env()
 
@@ -121,6 +135,9 @@ def build_orchestrator(
     else:
         retriever = hybrid
 
+    if crag:
+        print("Corrective RAG enabled (retrieval evaluator + query rewrite + knowledge refinement).")
+        return CorrectiveRagOrchestrator(retriever=retriever, generator=generator, top_k=top_k)
     return RagOrchestrator(retriever=retriever, generator=generator, top_k=top_k)
 
 
@@ -138,9 +155,21 @@ def print_answer(result) -> None:
             f"  [{i}] {chunk.file_path}  {chunk.node_type} '{chunk.name}'  "
             f"lines {chunk.start_line}-{chunk.end_line}  (score {chunk.score:.4f})"
         )
+    if result.verdict:
+        trace = f"CRAG: verdict={result.verdict}, corrective rounds={result.corrective_rounds}"
+        if result.rewritten_query:
+            trace += f", rewritten query={result.rewritten_query!r}"
+        if result.refinement:
+            trace += f", {result.refinement}"
+        print(trace)
 
 
 def main(argv: list[str] | None = None) -> int:
+    # Windows consoles default to cp1252 and CRASH printing exotic model output
+    # (e.g. U+202F narrow no-break space) — replace instead of raising.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
+
     parser = argparse.ArgumentParser(
         prog="python main.py",
         description="Run the RAG pipeline: retrieve from Qdrant, answer via Groq.",
@@ -153,6 +182,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--candidate-k", type=int, default=10)
     parser.add_argument("--min-score", type=float, default=None)
     parser.add_argument("--no-rerank", action="store_true")
+    parser.add_argument("--no-crag", action="store_true")
     parser.add_argument("--model", default=DEFAULT_MODEL)
     args = parser.parse_args(argv)
 
@@ -165,6 +195,7 @@ def main(argv: list[str] | None = None) -> int:
         rerank=not args.no_rerank,
         candidate_k=args.candidate_k,
         min_score=args.min_score,
+        crag=not args.no_crag,
     )
 
     if args.question:

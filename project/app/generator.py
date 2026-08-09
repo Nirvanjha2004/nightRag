@@ -25,11 +25,16 @@ def _is_rate_limit_error(error: APIStatusError) -> bool:
 
 
 def _backoff_seconds(error: APIStatusError, attempt: int) -> float:
-    """Prefer the server's Retry-After hint; otherwise exponential backoff."""
+    """Prefer the server's Retry-After hint; otherwise exponential backoff.
+
+    Either way the sleep is capped at _MAX_BACKOFF_SECONDS: Groq's TPM window
+    refills within a minute, so honoring a huge retry-after hint (e.g. a daily
+    reset) would stall the pipeline for hours over a limit that resets sooner.
+    """
     retry_after = error.response.headers.get("retry-after")
     if retry_after:
         try:
-            return max(0.0, float(retry_after))
+            return min(_MAX_BACKOFF_SECONDS, max(0.0, float(retry_after)))
         except ValueError:
             pass
     return min(_MAX_BACKOFF_SECONDS, 2.0 ** attempt)
@@ -41,8 +46,12 @@ class Generator:
         api_key: str,
         model: str = "openai/gpt-oss-120b",
         max_retries: int = 5,
+        timeout: float = 120.0,
     ):
-        self.client = Groq(api_key=api_key)
+        # timeout guards against a hung request stalling the whole pipeline
+        # (a rate-limited call retries with backoff instead; a genuinely dead
+        # connection raises and the caller's degradation path kicks in).
+        self.client = Groq(api_key=api_key, timeout=timeout)
         self.model = model
         self.max_retries = max_retries
 

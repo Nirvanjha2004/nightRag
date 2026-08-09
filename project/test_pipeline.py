@@ -106,6 +106,19 @@ def _check_generator_retries() -> None:
     )
     assert sleep.call_count == 2, f"expected 2 backoff sleeps, got {sleep.call_count}"
 
+    # A huge retry-after hint (e.g. a daily reset) must be capped — honoring it
+    # verbatim would stall a rate-limited run for hours (seen live: a 16-min
+    # single-question hang while the TPM window refills in ~60s).
+    from app.generator import _backoff_seconds
+
+    resp = httpx.Response(429, request=request, headers={"retry-after": "3600"})
+    limited = RateLimitError("rate limit reached", response=resp, body={})
+    assert _backoff_seconds(limited, 0) == 60.0, "retry-after must be capped at _MAX_BACKOFF_SECONDS"
+    # Small hints are still honored as-is.
+    resp_small = httpx.Response(429, request=request, headers={"retry-after": "3"})
+    small = RateLimitError("rate limit reached", response=resp_small, body={})
+    assert _backoff_seconds(small, 0) == 3.0
+
     # Non-rate-limit errors must propagate immediately, not be retried.
     class BadCompletions:
         def create(self, **kwargs):
@@ -264,6 +277,10 @@ def _check_llm_reranker() -> None:
     # Scoring calls: deterministic temperature, system judge prompt, batched numbering.
     assert len(fake.calls) == 2, f"expected 2 scoring batches, got {len(fake.calls)}"
     assert fake.calls[0][2] == 0.0, "reranker must score with temperature 0"
+    # Regression (2026-08-09): gpt-oss-120b's hidden reasoning ate a 256-token cap
+    # and returned an EMPTY score map (silent no-op reranker). The budget must be
+    # big enough that reasoning + scores fit.
+    assert fake.calls[0][3] >= 512, "scoring token budget must not truncate reasoning output"
     assert fake.calls[0][1] and "relevance judge" in fake.calls[0][1]
     assert "[1]" in fake.calls[0][0] and "[3]" not in fake.calls[0][0], "batches must be numbered per-batch"
     print("OK: reranker reorders by LLM relevance score")
@@ -395,15 +412,205 @@ def _check_eval_rows() -> None:
     results, passed = run_evals.evaluate(FakeOrchestrator(), evals[:2])
     assert passed == 0  # fake answer won't hit keywords; we only check the schema here
 
-    expected_keys = {"user_input", "response", "retrieved_contexts", "reference"}
+    expected_keys = {"user_input", "response", "retrieved_contexts", "reference", "crag_verdict"}
     for row, ev in zip(results, evals[:2]):
         assert set(row) == expected_keys, f"row keys {set(row)} != {expected_keys}"
         assert row["user_input"] == ev["question"]
         assert row["reference"] == ev["expected_answer"]
         assert row["response"] == "fake answer"
         assert row["retrieved_contexts"] == ["chunk one", "chunk two"]
+        assert row["crag_verdict"] is None  # fake result carries no verdict
 
     print(f"OK: evaluate() stores dataset rows for {len(results)} benchmark questions")
+
+
+def _check_corrective_rag() -> None:
+    """Corrective RAG: evaluator verdicts drive rewrite + refinement, degrades gracefully.
+
+    Fully offline — a stubbed retriever (per-query results) and a duck-typed
+    Generator with scripted responses stand in for Qdrant/Groq. Covers verdict
+    parsing, aggregation thresholds, refinement, merge dedup, and every branch
+    of the corrective flow (correct / ambiguous / incorrect / failures).
+    """
+    from app.corrective_rag import (
+        CorrectiveRagOrchestrator,
+        aggregate_verdict,
+        merge_chunks,
+        parse_verdicts,
+        refine_chunks,
+    )
+    from app.retriever import RetrievedChunk
+
+    def mk(name: str) -> RetrievedChunk:
+        return RetrievedChunk(
+            text=f"def {name}(): pass", file_path="a.py", node_type="function_definition",
+            name=name, start_line=1, end_line=2, score=0.0,
+        )
+
+    # --- 1. verdict parsing: JSON, fenced JSON, line fallback, garbage ---
+    assert parse_verdicts('{"1": "correct", "2": "incorrect"}') == {1: "correct", 2: "incorrect"}
+    assert parse_verdicts('```json\n{"1": "Ambiguous"}\n```') == {1: "ambiguous"}
+    assert parse_verdicts("1: correct\n2 = incorrect") == {1: "correct", 2: "incorrect"}
+    assert parse_verdicts('{"1": "maybe"}') == {}, "unknown verdicts must be dropped"
+    assert parse_verdicts("no idea") == {}
+    print("OK: CRAG verdict parsing handles JSON, fences and line fallback")
+
+    # --- 2. aggregation thresholds (top_k=5 -> correct needs >= 3) ---
+    assert aggregate_verdict({1: "correct", 2: "correct", 3: "correct", 4: "correct", 5: "correct"}, 5) == "correct"
+    assert aggregate_verdict({1: "correct", 2: "correct", 3: "correct", 4: "incorrect", 5: "incorrect"}, 5) == "correct"
+    assert aggregate_verdict({1: "correct", 2: "correct", 3: "incorrect", 4: "incorrect", 5: "incorrect"}, 5) == "ambiguous"
+    assert aggregate_verdict({1: "incorrect", 2: "incorrect", 3: "ambiguous", 4: "incorrect", 5: "ambiguous"}, 5) == "incorrect"
+    assert aggregate_verdict({}, 5) is None
+    print("OK: CRAG aggregates per-chunk verdicts into correct/ambiguous/incorrect")
+
+    # --- 3. knowledge refinement + merge dedup ---
+    a, b, c, d = mk("a"), mk("b"), mk("c"), mk("d")
+    kept = refine_chunks([a, b, c, d], {1: "correct", 2: "incorrect", 3: "ambiguous"})
+    assert [x.name for x in kept] == ["a", "c", "d"], "incorrect chunks must be dropped"
+    assert refine_chunks([a], {1: "incorrect"}) == [a], "dropping everything falls back to original"
+    merged = merge_chunks([a, b], [b, c])
+    assert [x.name for x in merged] == ["a", "b", "c"], "merge must dedupe by identity"
+    print("OK: CRAG knowledge refinement drops irrelevant chunks; merge dedupes")
+
+    class StubRetriever:
+        """Returns the plan's chunks per query, recording every retrieve call."""
+
+        def __init__(self, plan):
+            self.plan = plan
+            self.calls = []
+
+        def retrieve(self, query: str, top_k: int = 5):
+            self.calls.append(query)
+            return self.plan[query]
+
+    class ScriptedGenerator:
+        """Duck-typed Generator: returns scripted responses in order, records calls."""
+
+        def __init__(self, responses):
+            self.responses = list(responses)
+            self.calls = []
+
+        def generate(self, prompt, system_prompt=None, temperature=0.1, max_tokens=1024):
+            self.calls.append(system_prompt)
+            return self.responses.pop(0)
+
+    # --- 4. 'correct' verdict: single retrieval round, no rewrite ---
+    chunks = [mk("parse"), mk("color"), mk("rgb"), mk("none"), mk("on")]
+    retriever = StubRetriever({"q": chunks})
+    gen = ScriptedGenerator([
+        '{"1": "correct", "2": "correct", "3": "correct", "4": "correct", "5": "correct"}',
+        "the answer",
+    ])
+    orch = CorrectiveRagOrchestrator(retriever=retriever, generator=gen, top_k=5)
+    result = orch.ask("q")
+    assert result.verdict == "correct" and result.corrective_rounds == 0
+    assert result.rewritten_query is None
+    assert retriever.calls == ["q"], "correct retrieval must not trigger a rewrite round"
+    assert len(result.retrieved_chunks) == 5
+    assert result.answer == "the answer"
+    print("OK: CRAG generates directly when retrieval is graded correct")
+
+    # --- 5. 'incorrect' verdict: rewrite + fresh retrieval + re-evaluate ---
+    bad = [mk("x"), mk("y"), mk("z"), mk("w"), mk("v")]
+    good = [mk("p1"), mk("p2"), mk("p3"), mk("p4"), mk("p5")]
+    retriever = StubRetriever({"q": bad, "rewritten q": good})
+    gen = ScriptedGenerator([
+        '{"1": "incorrect", "2": "incorrect", "3": "incorrect", "4": "incorrect", "5": "incorrect"}',
+        "rewritten q",
+        '{"1": "correct", "2": "correct", "3": "correct", "4": "correct", "5": "correct"}',
+        "the answer",
+    ])
+    orch = CorrectiveRagOrchestrator(retriever=retriever, generator=gen, top_k=5)
+    result = orch.ask("q")
+    assert result.verdict == "correct", "verdict must reflect the corrected round"
+    assert result.corrective_rounds == 1
+    assert result.rewritten_query == "rewritten q"
+    assert retriever.calls == ["q", "rewritten q"]
+    assert [c.name for c in result.retrieved_chunks] == [c.name for c in good]
+    print("OK: CRAG rewrites + re-retrieves when retrieval is graded incorrect")
+
+    # --- 6. 'ambiguous' verdict: rewrite + merge + refine ---
+    orig = [mk("parse"), mk("noise"), mk("rgb"), mk("none"), mk("on")]  # parse correct, noise incorrect
+    extra = [mk("impl"), mk("color"), mk("rgb2"), mk("none2"), mk("on2")]
+    retriever = StubRetriever({"q": orig, "rewritten q": extra})
+    gen = ScriptedGenerator([
+        '{"1": "correct", "2": "incorrect", "3": "ambiguous", "4": "ambiguous", "5": "ambiguous"}',
+        "rewritten q",
+        "the answer",
+    ])
+    orch = CorrectiveRagOrchestrator(retriever=retriever, generator=gen, top_k=5)
+    result = orch.ask("q")
+    assert result.verdict == "ambiguous"
+    assert result.corrective_rounds == 1
+    names = [c.name for c in result.retrieved_chunks]
+    assert "noise" not in names, "incorrect chunk must be dropped by refinement"
+    assert names[0] == "parse", "correct original chunk keeps its rank"
+    assert "impl" in names, "rewrite-round chunks must be merged in"
+    assert result.refinement and "dropped" in result.refinement
+    print("OK: CRAG merges + refines on ambiguous retrieval")
+
+    # --- 7. rewrite round also fails: fall back to the original chunks ---
+    bad = [mk("x"), mk("y"), mk("z"), mk("w"), mk("v")]
+    also_bad = [mk("x2"), mk("y2"), mk("z2"), mk("w2"), mk("v2")]
+    retriever = StubRetriever({"q": bad, "rewritten q": also_bad})
+    gen = ScriptedGenerator([
+        '{"1": "incorrect", "2": "incorrect", "3": "incorrect", "4": "incorrect", "5": "incorrect"}',
+        "rewritten q",
+        '{"1": "incorrect", "2": "incorrect", "3": "incorrect", "4": "incorrect", "5": "incorrect"}',
+        "the answer",
+    ])
+    orch = CorrectiveRagOrchestrator(retriever=retriever, generator=gen, top_k=5)
+    result = orch.ask("q")
+    assert result.verdict == "incorrect"
+    assert [c.name for c in result.retrieved_chunks] == [c.name for c in bad]
+    assert result.refinement and "fell back" in result.refinement
+    print("OK: CRAG falls back to original retrieval when the rewrite round fails")
+
+    # --- 8. evaluator API failure degrades to plain RAG, never crashes ---
+    chunks = [mk("a"), mk("b"), mk("c"), mk("d"), mk("e")]
+    retriever = StubRetriever({"q": chunks})
+
+    class BrokenEvalGenerator:
+        def generate(self, prompt, system_prompt=None, temperature=0.1, max_tokens=1024):
+            if "verdict map" in prompt:
+                raise RuntimeError("evaluator down")
+            return "the answer"
+
+    orch = CorrectiveRagOrchestrator(retriever=retriever, generator=BrokenEvalGenerator(), top_k=5)
+    result = orch.ask("q")
+    assert result.verdict is None
+    assert len(result.retrieved_chunks) == 5, "evaluator failure must keep original chunks"
+    assert result.answer == "the answer"
+    print("OK: CRAG degrades to plain RAG when the evaluator raises")
+
+    # --- 9. rewrite failure: ambiguous verdict still refines, no extra round ---
+    class RewriteFailsGenerator:
+        def __init__(self, eval_response, answer):
+            self.eval_response = eval_response
+            self.answer = answer
+
+        def generate(self, prompt, system_prompt=None, temperature=0.1, max_tokens=1024):
+            if system_prompt and "rewriter" in system_prompt:
+                raise RuntimeError("rewrite API down")
+            if "verdict map" in prompt:
+                return self.eval_response
+            return self.answer
+
+    retriever = StubRetriever({"q": orig})
+    orch = CorrectiveRagOrchestrator(
+        retriever=retriever,
+        generator=RewriteFailsGenerator(
+            '{"1": "correct", "2": "incorrect", "3": "ambiguous", "4": "ambiguous", "5": "ambiguous"}',
+            "the answer",
+        ),
+        top_k=5,
+    )
+    result = orch.ask("q")
+    assert result.corrective_rounds == 0
+    assert result.rewritten_query is None
+    assert "noise" not in [c.name for c in result.retrieved_chunks]
+    assert result.answer == "the answer"
+    print("OK: CRAG still refines (no rewrite round) when the rewriter raises")
 
 
 if __name__ == "__main__":
@@ -415,3 +622,4 @@ if __name__ == "__main__":
     _check_hybrid_retrieval()
     _check_llm_reranker()
     _check_prompt_wiring()
+    _check_corrective_rag()
