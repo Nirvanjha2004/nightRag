@@ -5,10 +5,21 @@ it only composes retriever.py + prompt_builder.py + generator.py in sequence.
 """
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING, Protocol
 
-from app.retriever import Retriever, RetrievedChunk
+from app.retriever import RetrievedChunk
 from app.prompt_builder import build_prompt
 from app.generator import Generator
+
+if TYPE_CHECKING:
+    from app.hybrid_retriever import HybridRetriever
+    from app.retriever import Retriever
+
+
+class RetrieverLike(Protocol):
+    """Anything with Retriever.retrieve's signature — semantic or hybrid."""
+
+    def retrieve(self, query: str, top_k: int = 5) -> list[RetrievedChunk]: ...
 
 
 @dataclass
@@ -20,7 +31,12 @@ class RagResult:
 
 
 class RagOrchestrator:
-    def __init__(self, retriever: Retriever, generator: Generator, top_k: int = 5):
+    def __init__(
+        self,
+        retriever: RetrieverLike,
+        generator: Generator,
+        top_k: int = 5,
+    ):
         self.retriever = retriever
         self.generator = generator
         self.top_k = top_k
@@ -28,12 +44,14 @@ class RagOrchestrator:
     def ask(self, question: str) -> RagResult:
         """Full pipeline: retrieve -> build prompt -> generate answer."""
         chunks = self.retriever.retrieve(question, top_k=self.top_k)
-        prompt = build_prompt(question, chunks)
-        answer = self.generator.generate(prompt)
+        # build_prompt returns (system_prompt, user_prompt) — send them as
+        # separate roles so the model weights the system instructions.
+        system_prompt, user_prompt = build_prompt(question, chunks)
+        answer = self.generator.generate(user_prompt, system_prompt=system_prompt)
         return RagResult(
             question=question,
             answer=answer,
             retrieved_chunks=chunks,
-            prompt=prompt,
+            prompt=user_prompt,
         )
 

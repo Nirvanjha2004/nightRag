@@ -46,12 +46,25 @@ class Generator:
         self.model = model
         self.max_retries = max_retries
 
-    def generate(self, prompt: str, temperature: float = 0.1, max_tokens: int = 1024) -> str:
+    def generate(
+        self,
+        prompt: str,
+        system_prompt: str | None = None,
+        temperature: float = 0.1,
+        max_tokens: int = 1024,
+    ) -> str:
         """Send the prompt to Groq and return the generated answer text.
 
-        temperature is kept low (0.1) by default since this is a factual,
-        context-grounded RAG answer, not creative generation — reduces the
-        chance of the model drifting from the provided context.
+        Args:
+            prompt: the user message content.
+            system_prompt: optional system-role instructions, sent as a
+                separate ``system`` message ahead of the user message
+                (chat-tuned models weight ``system`` instructions more heavily
+                than ones buried inside the user message).
+            temperature: kept low (0.1) by default since this is a factual,
+                context-grounded RAG answer, not creative generation — reduces
+                the chance of the model drifting from the provided context.
+            max_tokens: cap on generated tokens.
 
         Rate-limit responses (429, and 413 with code 'rate_limit_exceeded') are
         retried with backoff: the free tier's 8k TPM window refills within a
@@ -59,13 +72,16 @@ class Generator:
         errors (400, 404, ...) propagate immediately.
         """
 
+        messages = []
+        if system_prompt:
+            messages.append({"role": "system", "content": system_prompt})
+        messages.append({"role": "user", "content": prompt})
+
         for attempt in range(self.max_retries):
             try:
                 response = self.client.chat.completions.create(
                     model=self.model,
-                    messages=[
-                        {"role": "user", "content": prompt},
-                    ],
+                    messages=messages,
                     temperature=temperature,
                     max_tokens=max_tokens,
                 )

@@ -101,3 +101,24 @@ class VectorDB:
             query=query_embedding,
             limit=top_k,
         ).points
+
+    def get_all_points(self, collection_name: str, batch_size: int = 1000):
+        """Scroll the entire collection and return all stored points.
+
+        Used by the hybrid retriever to build the BM25 index over exactly the
+        same chunks the vector index holds (no separate ingestion path, so the
+        two retrievers can never drift apart).
+        """
+        points = []
+        offset = None
+        while True:
+            batch, offset = self.client.scroll(
+                collection_name=collection_name,
+                limit=batch_size,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False,
+            )
+            points.extend(batch)
+            if offset is None:
+                return points

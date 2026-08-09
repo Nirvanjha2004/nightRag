@@ -11,13 +11,14 @@ Every time we change something and re-run the benchmark, add a new numbered entr
 |-----|------|-------|-------|---|--------------|
 | 01 | 2026-08-04 | [01-baseline-30-50.md](01-baseline-30-50.md) | **30/50 (60%)** | — | Baseline — no changes, this is the starting point |
 | 02 | 2026-08-06 | [02-ragas-eval-qwen3b.md](02-ragas-eval-qwen3b.md) | RAGAS: recall **0.80** / prec **0.90** / corr **0.70** / faith **0.34** (20Q) | — | First RAGAS quality eval — local Ollama `qwen2.5:3b` judge + Jina embeddings (different metric, not comparable to the X/50 score) |
+| 03 | 2026-08-07 | [03-hybrid-retrieval.md](03-hybrid-retrieval.md) | RAGAS: recall **0.84** / prec **0.82** / corr **0.67** / faith **0.60** (20Q) | +0.04 rec, +0.26 faith; −0.07 prec, −0.03 corr | **Hybrid retrieval** — BM25 + dense fused with RRF (idea #4 done); recall win (E05 fixed) but precision noise |
 
 _How to read a row: Score = keyword-hit PASS count / 50 questions (run 01) or RAGAS metric means over the
-20-question set (run 02). Δ = change vs previous run._
+20-question set (runs 02–03). Δ = change vs previous run._
 
 > ℹ️ **Dataset note:** `benchmarks/evals.jsonl` was trimmed from 50 → 20 questions (E01–E20) in commit
-> `1a78cb8` ("Remove outdated eval test cases"). Run 01 was scored on the original 50; run 02 covers the
-> current 20.
+> `1a78cb8` ("Remove outdated eval test cases"). Run 01 was scored on the original 50; runs 02–03 cover
+> the current 20.
 
 ## Pre-tracking history (for context, not official runs)
 
@@ -53,8 +54,8 @@ Offline sanity check (no API keys, no server):
 python test_pipeline.py
 ```
 
-> ⚠️ `uv run` currently hangs on this machine — use the venv interpreter directly:
-> `./.venv/Scripts/python.exe run_evals.py`
+> ⚠️ `uv run` used to hang on this machine — use `./.venv/Scripts/python.exe run_evals.py` if it still does.
+> (Run 03 executed fine with `uv run`.)
 
 ## How to record a new run (template)
 
@@ -103,13 +104,15 @@ Prioritized hypotheses to test in future runs — each will get its own journal 
 |---|------|--------------------------|-------------|
 | 1 | **Split large classes into method-level chunks** (+ prepend class header for context) | retrieval gaps (9/20) | High |
 | 2 | **Calibrate keyword scoring** (plurals, verb forms, module qualifiers) | keyword mismatches (10/20) | High — makes the score honest |
-| 3 | **Restore the prompt-size cap** (`_MAX_PROMPT_CHARS`/`_truncate` in `app/prompt_builder.py` — currently missing from source, test_pipeline.py is red) | 413/TPM risk | Medium |
-| 4 | **Hybrid retrieval**: BM25 + dense (reciprocal rank fusion) for symbol-name questions | retrieval gaps | Medium |
+| 3 | **Restore the prompt-size cap** (`_MAX_PROMPT_CHARS`/`_truncate` in `app/prompt_builder.py` — currently missing from source) | 413/TPM risk | Medium |
+| ~~4~~ | ~~**Hybrid retrieval**: BM25 + dense (reciprocal rank fusion)~~ — **DONE in run 03** ([03-hybrid-retrieval.md](03-hybrid-retrieval.md)) | retrieval gaps | Medium ✅ |
 | 5 | **Reranker** (e.g. Jina reranker) over top-20 → top-5 | retrieval gaps | Medium |
 | 6 | **top_k tuning** + min-score threshold | noise + retrieval | Low–Medium |
 | 7 | **Module-level context chunks** (file header / imports / docstrings) | retrieval gaps | Medium |
 | 8 | **Query rewriting** for symbol-heavy questions (e.g. append `class_definition`/`function_definition`) | retrieval gaps | Low–Medium |
 | 9 | **Better generation**: higher `max_tokens`, stronger model or higher TPM tier | answer completeness | Medium |
 | 10 | **Upgrade the RAGAS judge** (7B+ local or Groq `gpt-oss-120b`) + `max_tokens=4096`; fix deprecated `ragas.metrics` imports | faithfulness metric trustworthiness (see [02-ragas-eval-qwen3b.md](02-ragas-eval-qwen3b.md)) | High |
+| 11 | **RRF tuning**: sweep `--rrf-k` (30/60/100), per-retriever top_k (BM25 top-10 → fuse → top-5), BM25 min-score floor | precision regression from run 03 (E13 prec 0.0, E17/E20 dips) | High |
+| 12 | **Persist the BM25 index** at ingestion time (pickle next to `qdrant_data`) instead of rebuilding at every process start | startup cost as the corpus grows | Low–Medium |
 
 See [01-baseline-30-50.md](01-baseline-30-50.md) and [02-ragas-eval-qwen3b.md](02-ragas-eval-qwen3b.md) for the analysis behind these.

@@ -37,15 +37,21 @@ class Retriever:
             top_k=top_k,
         )
 
-        return [
-            RetrievedChunk(
-                text=point.payload["text"],
-                file_path=point.payload["file_path"],
-                node_type=point.payload["node_type"],
-                name=point.payload["name"],
-                start_line=point.payload["start_line"],
-                end_line=point.payload["end_line"],
-                score=point.score,
-            )
-            for point in results
-        ]
+        return [chunk_from_payload(point.payload, point.score) for point in results]
+
+
+def chunk_from_payload(payload: dict, score: float) -> RetrievedChunk:
+    """Build a RetrievedChunk from a Qdrant point payload + score.
+
+    Shared by the semantic Retriever and the BM25 retriever so both produce
+    the same chunk shape — the hybrid retriever can then fuse the two lists.
+    """
+    return RetrievedChunk(
+        text=payload["text"],
+        file_path=payload["file_path"],
+        node_type=payload["node_type"],
+        name=payload["name"],
+        start_line=payload["start_line"],
+        end_line=payload["end_line"],
+        score=score,
+    )

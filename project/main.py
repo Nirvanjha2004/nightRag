@@ -15,6 +15,7 @@ Usage:
         --collection <name>   Qdrant collection (default: code_chunks)
         --qdrant-dir <dir>    Local Qdrant data dir (default: qdrant_data)
         --top-k <n>           Chunks retrieved per question (default: 5)
+        --rrf-k <n>           RRF fusion constant (default: 60)
         --model <model>       Groq model id (default: openai/gpt-oss-120b)
 
     Run ingestion FIRST to build the collection:
@@ -27,11 +28,13 @@ import sys
 
 from qdrant_client import QdrantClient
 
+from app.bm25_retriever import BM25Retriever
 from app.config import load_env
 from app.embedder import Embedder
 from app.generator import Generator
+from app.hybrid_retriever import HybridRetriever
 from app.rag_pipeline import RagOrchestrator
-from app.retriever import Retriever
+from app.retriever import Retriever, chunk_from_payload
 from app.vector_db import VectorDB
 
 DEFAULT_QDRANT_DIR = "qdrant_data"
@@ -44,6 +47,7 @@ def build_orchestrator(
     collection: str = DEFAULT_COLLECTION,
     model: str = DEFAULT_MODEL,
     top_k: int = 5,
+    rrf_k: int = 60,
 ) -> RagOrchestrator:
     """Wire the full pipeline: .env keys + local Qdrant -> RagOrchestrator."""
     load_env()
@@ -64,10 +68,29 @@ def build_orchestrator(
         print("Run ingestion first:  python -m app.ingestion sample_code --local")
         sys.exit(1)
 
-    retriever = Retriever(
+    semantic_retriever = Retriever(
         embedder=Embedder(api_key=jina_api_key),
         vector_db=vector_db,
         collection_name=collection,
+    )
+
+    # Hybrid: build the BM25 index over the exact chunks stored in Qdrant,
+    # then run BM25 + semantic retrieval concurrently and fuse with RRF.
+    #
+    # ponytail: the whole collection is scrolled + re-indexed in memory on
+    # every process start — O(chunks) reads at startup, O(chunks) per query
+    # to score. Fine for repo-scale corpora. If it ever gets slow, persist the
+    # index at ingestion time (e.g. pickle next to qdrant_data) and load it
+    # here instead of rebuilding.
+    points = vector_db.get_all_points(collection)
+    chunks = [chunk_from_payload(p.payload, 0.0) for p in points]
+    bm25_retriever = BM25Retriever(chunks)
+    print(f"BM25 index built over {len(chunks)} chunks.")
+
+    retriever = HybridRetriever(
+        semantic_retriever=semantic_retriever,
+        bm25_retriever=bm25_retriever,
+        rrf_k=rrf_k,
     )
     generator = Generator(api_key=groq_api_key, model=model)
 
@@ -99,6 +122,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--collection", default=DEFAULT_COLLECTION)
     parser.add_argument("--qdrant-dir", default=DEFAULT_QDRANT_DIR)
     parser.add_argument("--top-k", type=int, default=5)
+    parser.add_argument("--rrf-k", type=int, default=60)
     parser.add_argument("--model", default=DEFAULT_MODEL)
     args = parser.parse_args(argv)
 
@@ -107,6 +131,7 @@ def main(argv: list[str] | None = None) -> int:
         collection=args.collection,
         model=args.model,
         top_k=args.top_k,
+        rrf_k=args.rrf_k,
     )
 
     if args.question:
