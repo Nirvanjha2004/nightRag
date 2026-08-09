@@ -17,6 +17,9 @@ Usage:
         --top-k <n>           Chunks retrieved per question (default: 5)
         --rrf-k <n>           RRF fusion constant (default: 60)
         --model <model>       Groq model id (default: openai/gpt-oss-120b)
+        --candidate-k <n>     Chunks fetched before LLM reranking (default: 10)
+        --min-score <x>       Drop reranked chunks rated below x (1-5); unset = keep top_k
+        --no-rerank           Skip the LLM reranker (hybrid RRF only)
 
     Run ingestion FIRST to build the collection:
         python -m app.ingestion sample_code --local
@@ -33,6 +36,7 @@ from app.config import load_env
 from app.embedder import Embedder
 from app.generator import Generator
 from app.hybrid_retriever import HybridRetriever
+from app.llm_reranker import LLMReranker
 from app.rag_pipeline import RagOrchestrator
 from app.retriever import Retriever, chunk_from_payload
 from app.vector_db import VectorDB
@@ -48,8 +52,17 @@ def build_orchestrator(
     model: str = DEFAULT_MODEL,
     top_k: int = 5,
     rrf_k: int = 60,
+    rerank: bool = True,
+    candidate_k: int = 10,
+    min_score: float | None = None,
 ) -> RagOrchestrator:
-    """Wire the full pipeline: .env keys + local Qdrant -> RagOrchestrator."""
+    """Wire the full pipeline: .env keys + local Qdrant -> RagOrchestrator.
+
+    By default the hybrid retriever's fused top-k is re-ranked by an LLM
+    (LLMReranker): it fetches candidate_k candidates, scores each 1-5 against
+    the query, and returns the best top_k. Pass rerank=False for the raw
+    hybrid path.
+    """
     load_env()
 
     jina_api_key = os.environ.get("jina_api_key")
@@ -87,12 +100,26 @@ def build_orchestrator(
     bm25_retriever = BM25Retriever(chunks)
     print(f"BM25 index built over {len(chunks)} chunks.")
 
-    retriever = HybridRetriever(
+    hybrid = HybridRetriever(
         semantic_retriever=semantic_retriever,
         bm25_retriever=bm25_retriever,
         rrf_k=rrf_k,
     )
+
+    # The generator is shared: it produces the reranker's relevance ratings AND
+    # the final answer (its 429/413 retry-with-backoff protects both callers).
     generator = Generator(api_key=groq_api_key, model=model)
+
+    if rerank:
+        retriever = LLMReranker(
+            base_retriever=hybrid,
+            generator=generator,
+            candidate_k=candidate_k,
+            min_score=min_score,
+        )
+        print(f"LLM reranker enabled (candidate_k={candidate_k}, min_score={min_score}).")
+    else:
+        retriever = hybrid
 
     return RagOrchestrator(retriever=retriever, generator=generator, top_k=top_k)
 
@@ -123,6 +150,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--qdrant-dir", default=DEFAULT_QDRANT_DIR)
     parser.add_argument("--top-k", type=int, default=5)
     parser.add_argument("--rrf-k", type=int, default=60)
+    parser.add_argument("--candidate-k", type=int, default=10)
+    parser.add_argument("--min-score", type=float, default=None)
+    parser.add_argument("--no-rerank", action="store_true")
     parser.add_argument("--model", default=DEFAULT_MODEL)
     args = parser.parse_args(argv)
 
@@ -132,6 +162,9 @@ def main(argv: list[str] | None = None) -> int:
         model=args.model,
         top_k=args.top_k,
         rrf_k=args.rrf_k,
+        rerank=not args.no_rerank,
+        candidate_k=args.candidate_k,
+        min_score=args.min_score,
     )
 
     if args.question:

@@ -17,6 +17,9 @@ answer correctness, faithfulness).
 Usage (ingest first, then):
     python run_evals.py
     python run_ragas.py
+
+The LLM reranker is on by default (see main.build_orchestrator) — pass
+--no-rerank to evaluate the raw hybrid retrieval path.
 """
 
 import argparse
@@ -132,6 +135,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--qdrant-dir", default="qdrant_data")
     parser.add_argument("--model", default="openai/gpt-oss-120b")
     parser.add_argument("--top-k", type=int, default=5)
+    parser.add_argument("--candidate-k", type=int, default=10)
+    parser.add_argument("--min-score", type=float, default=None)
+    parser.add_argument("--no-rerank", action="store_true")
     args = parser.parse_args(argv)
 
     orchestrator = build_orchestrator(
@@ -139,6 +145,9 @@ def main(argv: list[str] | None = None) -> int:
         collection=args.collection,
         model=args.model,
         top_k=args.top_k,
+        rerank=not args.no_rerank,
+        candidate_k=args.candidate_k,
+        min_score=args.min_score,
     )
 
     evals = load_evals()

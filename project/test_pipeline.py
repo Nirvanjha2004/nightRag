@@ -208,6 +208,101 @@ def _check_hybrid_retrieval() -> None:
     print(f"OK: hybrid retrieval fuses BM25 + semantic (RRF), {len(results)} deduped hits")
 
 
+def _check_llm_reranker() -> None:
+    """LLMReranker: reorders by LLM score, filters below min_score, degrades gracefully.
+
+    Fully offline — a stubbed base retriever and a duck-typed Generator with
+    scripted score-map responses stand in for the hybrid retriever and Groq.
+    """
+    from app.llm_reranker import LLMReranker, parse_scores
+    from app.retriever import RetrievedChunk
+
+    # --- 1. score-map parsing: JSON, fenced JSON, line fallback, garbage ---
+    assert parse_scores('{"1": 5, "2": 2}') == {1: 5.0, 2: 2.0}
+    assert parse_scores('```json\n{"1": 4}\n```') == {1: 4.0}
+    assert parse_scores('{"1": 5, "note": "irrelevant"}') == {1: 5.0}, "non-digit keys must be skipped"
+    assert parse_scores('{"1": true}') == {}, "boolean JSON values must not read as scores"
+    assert parse_scores("Scoring: 1 = 3, 2 = 5") == {1: 3.0, 2: 5.0}
+    assert parse_scores("I cannot help with that.") == {}
+    print("OK: reranker score-map parsing handles JSON, fences and line fallback")
+
+    def mk(name: str, text: str) -> RetrievedChunk:
+        return RetrievedChunk(
+            text=text, file_path="a.py", node_type="function_definition",
+            name=name, start_line=1, end_line=2, score=0.0,
+        )
+
+    chunks = [
+        mk("a", "def a(): pass"), mk("b", "def b(): pass"),
+        mk("c", "def c(): pass"), mk("d", "def d(): pass"),
+    ]
+
+    class StubBase:
+        def __init__(self, results):
+            self.results = list(results)
+
+        def retrieve(self, query: str, top_k: int = 5):
+            return self.results
+
+    class FakeGenerator:
+        """Duck-typed Generator: returns scripted responses in order, records calls."""
+
+        def __init__(self, responses):
+            self.responses = list(responses)
+            self.calls = []
+
+        def generate(self, prompt, system_prompt=None, temperature=0.1, max_tokens=1024):
+            self.calls.append((prompt, system_prompt, temperature, max_tokens))
+            return self.responses.pop(0)
+
+    # --- 2. reorder by LLM score + attach the rating as .score ---
+    fake = FakeGenerator(['{"1": 2, "2": 5}', '{"3": 4, "4": 1}'])
+    reranker = LLMReranker(base_retriever=StubBase(chunks), generator=fake, batch_size=2)
+    top = reranker.retrieve("question", top_k=2)
+    assert [c.name for c in top] == ["b", "c"], f"expected b,c got {[c.name for c in top]}"
+    assert top[0].score == 5.0 and top[1].score == 4.0, "LLM score must replace RRF score"
+    # Scoring calls: deterministic temperature, system judge prompt, batched numbering.
+    assert len(fake.calls) == 2, f"expected 2 scoring batches, got {len(fake.calls)}"
+    assert fake.calls[0][2] == 0.0, "reranker must score with temperature 0"
+    assert fake.calls[0][1] and "relevance judge" in fake.calls[0][1]
+    assert "[1]" in fake.calls[0][0] and "[3]" not in fake.calls[0][0], "batches must be numbered per-batch"
+    print("OK: reranker reorders by LLM relevance score")
+
+    # --- 3. min_score filters BEFORE the top-k cut ---
+    fake = FakeGenerator(['{"1": 2, "2": 5}', '{"3": 4, "4": 1}'])
+    reranker = LLMReranker(
+        base_retriever=StubBase(chunks), generator=fake, batch_size=2, min_score=4.0
+    )
+    top = reranker.retrieve("question", top_k=3)
+    assert [c.name for c in top] == ["b", "c"], "chunks below min_score must be dropped"
+    print("OK: reranker drops chunks below min_score")
+
+    # --- 4. nothing to rerank → no LLM call at all ---
+    fake = FakeGenerator(['{"1": 5}'])
+    reranker = LLMReranker(base_retriever=StubBase(chunks[:2]), generator=fake, batch_size=2)
+    top = reranker.retrieve("question", top_k=2)
+    assert [c.name for c in top] == ["a", "b"], "short base list must pass through untouched"
+    assert fake.responses == ['{"1": 5}'], "no scoring call expected when nothing to rerank"
+    print("OK: reranker skips the LLM when there is nothing to rerank")
+
+    # --- 5. total parse failure degrades to the original order ---
+    fake = FakeGenerator(["I cannot help with that.", "Also no."])
+    reranker = LLMReranker(base_retriever=StubBase(chunks), generator=fake, batch_size=2)
+    top = reranker.retrieve("question", top_k=3)
+    assert [c.name for c in top] == ["a", "b", "c"], "unparseable responses must not hurt retrieval"
+    print("OK: reranker falls back to original order on unparseable responses")
+
+    # --- 6. a Generator exception during scoring degrades, not crashes ---
+    class BrokenGenerator:
+        def generate(self, prompt, system_prompt=None, temperature=0.1, max_tokens=1024):
+            raise RuntimeError("scoring API down")
+
+    reranker = LLMReranker(base_retriever=StubBase(chunks), generator=BrokenGenerator(), batch_size=2)
+    top = reranker.retrieve("question", top_k=3)
+    assert [c.name for c in top] == ["a", "b", "c"], "scoring failure must fall back to base order"
+    print("OK: reranker falls back to base order when scoring raises")
+
+
 def _check_prompt_wiring() -> None:
     """build_prompt's (system, user) tuple must reach Groq as separate roles.
 
@@ -318,4 +413,5 @@ if __name__ == "__main__":
     _check_embedder_retries()
     _check_eval_rows()
     _check_hybrid_retrieval()
+    _check_llm_reranker()
     _check_prompt_wiring()
