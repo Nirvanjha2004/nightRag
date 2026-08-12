@@ -1,0 +1,310 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   NightRag design tokens.
+
+   One accent (azure), three semantic hues (positive / caution / critical), and
+   a six-step neutral ramp. Nothing in the app hard-codes a colour — components
+   only ever reference these names, so retheming is a change in this one block,
+   and the light theme is the same names with different values.
+
+   Dark is the default; `data-theme="light"` on <html> flips it.
+--------------------------------------------------------------------------- */
+
+@theme {
+  --font-sans: "Inter var", "Inter", ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, "Cascadia Mono",
+    Menlo, Consolas, monospace;
+
+  --radius-control: 0.5rem;
+  --radius-card: 0.875rem;
+  --radius-pill: 999px;
+
+  /* Neutrals — surfaces from deepest to raised */
+  --color-canvas: #08090c;
+  --color-surface: #0e1016;
+  --color-surface-raised: #14171f;
+  --color-surface-hover: #1a1e28;
+  --color-line: #222736;
+  --color-line-strong: #303747;
+
+  /* Foreground */
+  --color-fg: #e8ebf2;
+  --color-fg-muted: #9ba4b5;
+  --color-fg-subtle: #737d90;
+  --color-fg-inverse: #0a0d14;
+
+  /* Accent */
+  --color-accent: #5b9dff;
+  --color-accent-hover: #7ab0ff;
+  --color-accent-soft: #16233c;
+  --color-accent-line: #2b4674;
+
+  /* Semantics — always paired with an icon or label, never colour alone */
+  --color-positive: #4ade80;
+  --color-positive-soft: #10241a;
+  --color-caution: #fbbf24;
+  --color-caution-soft: #2a2010;
+  --color-critical: #fb7185;
+  --color-critical-soft: #2c1119;
+
+  /* Syntax highlighting — a muted subset that sits inside the neutral ramp */
+  --color-code-keyword: #93b8ff;
+  --color-code-string: #86d99f;
+  --color-code-number: #f0b775;
+  --color-code-comment: #6b7484;
+  --color-code-function: #c4a7ff;
+}
+
+[data-theme="light"] {
+  --color-canvas: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-surface-hover: #f0f2f6;
+  --color-line: #e2e5ec;
+  --color-line-strong: #cdd3de;
+
+  --color-fg: #12161f;
+  --color-fg-muted: #545e70;
+  --color-fg-subtle: #6d778a;
+  --color-fg-inverse: #ffffff;
+
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
+  --color-accent-soft: #eaf1ff;
+  --color-accent-line: #bcd2ff;
+
+  --color-positive: #15803d;
+  --color-positive-soft: #e7f6ec;
+  --color-caution: #b45309;
+  --color-caution-soft: #fdf3e3;
+  --color-critical: #be123c;
+  --color-critical-soft: #fdeaee;
+
+  --color-code-keyword: #1d4ed8;
+  --color-code-string: #0f7a4a;
+  --color-code-number: #a4530b;
+  --color-code-comment: #6d778a;
+  --color-code-function: #6d28d9;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    color-scheme: dark;
+    background-color: var(--color-canvas);
+  }
+
+  [data-theme="light"] {
+    color-scheme: light;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* One focus treatment for the whole app: a 2px accent ring offset from the
+     control, so it reads on every surface without shifting layout. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-control);
+  }
+
+  ::selection {
+    background-color: var(--color-accent-line);
+    color: var(--color-fg);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-line-strong);
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: var(--radius-pill);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-fg-subtle);
+    background-clip: content-box;
+  }
+}
+
+@layer components {
+  /* Answer prose. Tailwind's typography plugin is deliberately not a
+     dependency — the answer only ever contains a known subset of markdown
+     (paragraphs, lists, code, tables), and styling it here keeps it on the
+     same tokens as the rest of the app. */
+  .prose-answer {
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    color: var(--color-fg);
+  }
+  .prose-answer > * + * {
+    margin-top: 0.85em;
+  }
+  .prose-answer h1,
+  .prose-answer h2,
+  .prose-answer h3 {
+    font-weight: 600;
+    line-height: 1.35;
+    margin-top: 1.4em;
+  }
+  .prose-answer h1 {
+    font-size: 1.15rem;
+  }
+  .prose-answer h2 {
+    font-size: 1.05rem;
+  }
+  .prose-answer h3 {
+    font-size: 0.975rem;
+  }
+  .prose-answer ul,
+  .prose-answer ol {
+    padding-left: 1.35em;
+  }
+  .prose-answer ul {
+    list-style: disc;
+  }
+  .prose-answer ol {
+    list-style: decimal;
+  }
+  .prose-answer li + li {
+    margin-top: 0.3em;
+  }
+  .prose-answer li::marker {
+    color: var(--color-fg-subtle);
+  }
+  .prose-answer a {
+    color: var(--color-accent);
+    text-underline-offset: 3px;
+    text-decoration: underline;
+  }
+  .prose-answer strong {
+    font-weight: 600;
+  }
+  .prose-answer blockquote {
+    border-left: 2px solid var(--color-accent-line);
+    padding-left: 0.9em;
+    color: var(--color-fg-muted);
+  }
+  .prose-answer :not(pre) > code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    background: var(--color-surface-hover);
+    border: 1px solid var(--color-line);
+    border-radius: 0.375rem;
+    padding: 0.1em 0.35em;
+  }
+  .prose-answer pre {
+    background: var(--color-canvas);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-control);
+    padding: 0.85rem 1rem;
+    overflow-x: auto;
+    font-size: 0.8125rem;
+    line-height: 1.6;
+  }
+  .prose-answer pre code {
+    font-family: var(--font-mono);
+  }
+  .prose-answer table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+  }
+  .prose-answer th,
+  .prose-answer td {
+    border: 1px solid var(--color-line);
+    padding: 0.45rem 0.65rem;
+    text-align: left;
+  }
+  .prose-answer th {
+    background: var(--color-surface-hover);
+    font-weight: 600;
+  }
+
+  /* highlight.js output, mapped onto the token palette so code never
+     introduces colours the rest of the app does not use. */
+  .hljs-keyword,
+  .hljs-built_in,
+  .hljs-literal,
+  .hljs-type {
+    color: var(--color-code-keyword);
+  }
+  .hljs-string,
+  .hljs-meta .hljs-string {
+    color: var(--color-code-string);
+  }
+  .hljs-number,
+  .hljs-symbol {
+    color: var(--color-code-number);
+  }
+  .hljs-comment,
+  .hljs-quote {
+    color: var(--color-code-comment);
+    font-style: italic;
+  }
+  .hljs-title,
+  .hljs-title.function_,
+  .hljs-attr,
+  .hljs-params {
+    color: var(--color-code-function);
+  }
+  .hljs-decorator,
+  .hljs-meta {
+    color: var(--color-caution);
+  }
+}
+
+@layer utilities {
+  /* A caret that blinks only while tokens are still arriving. It hangs off the
+     last rendered block rather than the container, so it sits at the end of the
+     sentence being written instead of on a line of its own. */
+  .streaming-caret > :last-child::after {
+    content: "";
+    display: inline-block;
+    width: 0.5ch;
+    height: 1.05em;
+    margin-left: 0.15ch;
+    vertical-align: text-bottom;
+    background: var(--color-accent);
+    animation: caret-blink 1.1s steps(1) infinite;
+  }
+
+  @keyframes caret-blink {
+    0%,
+    45% {
+      opacity: 1;
+    }
+    50%,
+    100% {
+      opacity: 0;
+    }
+  }
+
+  /* Respect the OS setting: motion is decoration here, never information. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
