@@ -94,7 +94,7 @@ export function IngestPanel({ defaultCollection, onStarted }: IngestPanelProps) 
         description="Chunk, embed and index every Python file so it can be searched."
       />
       <CardBody className="space-y-4">
-        <div role="tablist" aria-label="Source type" className="flex gap-1 rounded-control bg-surface-hover p-1">
+        <div role="tablist" aria-label="Source type" className="flex gap-1 rounded-control bg-panel-2 p-1">
           {TABS.map(({ kind: tabKind, label, icon: Icon }) => (
             <button
               key={tabKind}
@@ -109,8 +109,8 @@ export function IngestPanel({ defaultCollection, onStarted }: IngestPanelProps) 
                 "flex flex-1 items-center justify-center gap-1.5 rounded-[0.375rem] px-3 py-1.5",
                 "text-[0.8125rem] font-medium transition-colors",
                 kind === tabKind
-                  ? "bg-surface text-fg shadow-[0_1px_2px_rgba(0,0,0,0.2)]"
-                  : "text-fg-muted hover:text-fg",
+                  ? "bg-panel text-moon shadow-[0_1px_2px_rgba(0,0,0,0.2)]"
+                  : "text-moon-2 hover:text-moon",
               )}
             >
               <Icon aria-hidden className="size-3.5" />
@@ -121,7 +121,7 @@ export function IngestPanel({ defaultCollection, onStarted }: IngestPanelProps) 
 
         {kind === "upload" ? (
           <div>
-            <p className="mb-1.5 text-[0.8125rem] font-medium text-fg">Zip archive</p>
+            <p className="mb-1.5 text-[0.8125rem] font-medium text-moon">Zip archive</p>
             <div
               onDragOver={(event) => {
                 event.preventDefault();
@@ -131,17 +131,17 @@ export function IngestPanel({ defaultCollection, onStarted }: IngestPanelProps) 
               onDrop={onDrop}
               className={cn(
                 "flex flex-col items-center rounded-control border border-dashed px-4 py-8 text-center transition-colors",
-                dragging ? "border-accent bg-accent-soft" : "border-line-strong bg-surface-raised",
+                dragging ? "border-lamp bg-lamp-soft" : "border-rule-strong bg-panel",
               )}
             >
-              <Upload aria-hidden className="mb-2.5 size-5 text-fg-subtle" />
+              <Upload aria-hidden className="mb-2.5 size-5 text-moon-3" />
               {file ? (
-                <p className="text-[0.8125rem] text-fg">
+                <p className="text-[0.8125rem] text-moon">
                   <span className="font-mono">{file.name}</span>{" "}
-                  <span className="text-fg-subtle">({Math.round(file.size / 1024)} KB)</span>
+                  <span className="text-moon-3">({Math.round(file.size / 1024)} KB)</span>
                 </p>
               ) : (
-                <p className="text-[0.8125rem] text-fg-muted">Drop a .zip here, or</p>
+                <p className="text-[0.8125rem] text-moon-2">Drop a .zip here, or</p>
               )}
               <Button
                 size="sm"
@@ -159,7 +159,7 @@ export function IngestPanel({ defaultCollection, onStarted }: IngestPanelProps) 
                 onChange={(event) => acceptFile(event.target.files?.[0])}
               />
             </div>
-            <p className="mt-1.5 text-xs leading-relaxed text-fg-muted">
+            <p className="mt-1.5 text-xs leading-relaxed text-moon-2">
               The archive is extracted to a temporary directory and deleted after indexing.
             </p>
           </div>
@@ -200,7 +200,7 @@ export function IngestPanel({ defaultCollection, onStarted }: IngestPanelProps) 
         {error && (
           <p
             role="alert"
-            className="rounded-control border border-critical/30 bg-critical-soft px-3 py-2 text-xs leading-relaxed text-fg"
+            className="rounded-control border border-cut/30 bg-cut-soft px-3 py-2 text-xs leading-relaxed text-moon"
           >
             {error}
           </p>

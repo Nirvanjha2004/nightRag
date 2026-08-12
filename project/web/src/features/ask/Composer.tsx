@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Square } from "lucide-react";
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
@@ -7,13 +8,22 @@ interface ComposerProps {
   busy: boolean;
   disabled: boolean;
   placeholder: string;
+  /** Rendered on the footer line — the corpus this question will be asked of. */
+  target?: ReactNode;
   onSubmit: (question: string) => void;
   onStop: () => void;
 }
 
 const MAX_HEIGHT_PX = 200;
 
-export function Composer({ busy, disabled, placeholder, onSubmit, onStop }: ComposerProps) {
+export function Composer({
+  busy,
+  disabled,
+  placeholder,
+  target,
+  onSubmit,
+  onStop,
+}: ComposerProps) {
   const [value, setValue] = useState("");
   const textarea = useRef<HTMLTextAreaElement>(null);
 
@@ -39,68 +49,74 @@ export function Composer({ busy, disabled, placeholder, onSubmit, onStop }: Comp
         event.preventDefault();
         submit();
       }}
-      className="border-t border-line bg-surface/80 px-4 py-3 backdrop-blur-sm sm:px-6"
+      className="border-t border-rule bg-panel px-4 py-3 sm:px-6"
     >
-      <div
-        className={cn(
-          "mx-auto flex w-full max-w-3xl items-end gap-2 rounded-card border bg-surface-raised p-2",
-          "transition-colors focus-within:border-accent",
-          disabled ? "border-line opacity-60" : "border-line hover:border-line-strong",
-        )}
-      >
-        <label htmlFor="question" className="sr-only">
-          Your question about the codebase
-        </label>
-        <textarea
-          id="question"
-          ref={textarea}
-          rows={1}
-          value={value}
-          disabled={disabled}
-          placeholder={placeholder}
-          onChange={(event) => setValue(event.target.value)}
-          onKeyDown={(event) => {
-            // Enter sends, Shift+Enter breaks the line — the convention every
-            // chat interface has trained users on.
-            if (event.key === "Enter" && !event.shiftKey) {
-              event.preventDefault();
-              submit();
-            }
-          }}
+      <div className="mx-auto w-full max-w-5xl">
+        <div
           className={cn(
-            "max-h-[12.5rem] min-h-[2.25rem] flex-1 resize-none bg-transparent px-2 py-1.5",
-            "text-sm leading-relaxed text-fg placeholder:text-fg-subtle",
-            "focus:outline-none disabled:cursor-not-allowed",
+            "flex items-end gap-2 rounded-panel border bg-ink p-2 transition-colors",
+            disabled ? "border-rule opacity-60" : "border-rule focus-within:border-lamp-line",
           )}
-        />
+        >
+          <label htmlFor="question" className="sr-only">
+            Your question about the codebase
+          </label>
+          <textarea
+            id="question"
+            ref={textarea}
+            rows={1}
+            value={value}
+            disabled={disabled}
+            placeholder={placeholder}
+            onChange={(event) => setValue(event.target.value)}
+            onKeyDown={(event) => {
+              // Enter sends, Shift+Enter breaks the line — the convention every
+              // chat interface has trained users on.
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                submit();
+              }
+            }}
+            className={cn(
+              "max-h-[12.5rem] min-h-[2.25rem] flex-1 resize-none bg-transparent px-2 py-1.5",
+              "text-sm leading-relaxed text-moon placeholder:text-moon-3",
+              "focus:outline-none disabled:cursor-not-allowed",
+            )}
+          />
 
-        {busy ? (
-          <Button variant="secondary" size="sm" onClick={onStop} aria-label="Stop generating">
-            <Square aria-hidden className="size-3.5" fill="currentColor" />
-            Stop
-          </Button>
-        ) : (
-          <Button
-            type="submit"
-            variant="primary"
-            size="sm"
-            iconOnly
-            disabled={disabled || !value.trim()}
-            aria-label="Ask question"
-          >
-            <ArrowUp aria-hidden className="size-4" />
-          </Button>
-        )}
+          {busy ? (
+            <Button variant="secondary" size="sm" onClick={onStop} aria-label="Stop generating">
+              <Square aria-hidden className="size-3" fill="currentColor" />
+              Stop
+            </Button>
+          ) : (
+            <Button
+              type="submit"
+              variant="primary"
+              size="sm"
+              iconOnly
+              disabled={disabled || !value.trim()}
+              aria-label="Ask question"
+            >
+              <ArrowUp aria-hidden className="size-4" />
+            </Button>
+          )}
+        </div>
+
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          {target}
+          <p className="ml-auto text-[0.6875rem] text-moon-3">
+            <kbd className="rounded-[0.25rem] border border-rule bg-panel-2 px-1 font-mono">
+              Enter
+            </kbd>{" "}
+            asks ·{" "}
+            <kbd className="rounded-[0.25rem] border border-rule bg-panel-2 px-1 font-mono">
+              Shift + Enter
+            </kbd>{" "}
+            new line
+          </p>
+        </div>
       </div>
-
-      <p className="mx-auto mt-2 max-w-3xl text-[0.6875rem] text-fg-subtle">
-        <kbd className="rounded-[0.25rem] border border-line bg-surface-hover px-1 font-mono">Enter</kbd>{" "}
-        to ask ·{" "}
-        <kbd className="rounded-[0.25rem] border border-line bg-surface-hover px-1 font-mono">
-          Shift + Enter
-        </kbd>{" "}
-        for a new line
-      </p>
     </form>
   );
 }

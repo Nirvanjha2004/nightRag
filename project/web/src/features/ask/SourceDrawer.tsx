@@ -59,7 +59,7 @@ export function SourceDrawer({ chunks, index, onClose, onNavigate }: SourceDrawe
             exit={{ opacity: 0 }}
             transition={{ duration: 0.15 }}
             onClick={onClose}
-            className="fixed inset-0 z-40 bg-canvas/70 backdrop-blur-[2px] lg:hidden"
+            className="fixed inset-0 z-40 bg-ink/70 backdrop-blur-[2px] lg:hidden"
             aria-hidden
           />
 
@@ -71,20 +71,20 @@ export function SourceDrawer({ chunks, index, onClose, onNavigate }: SourceDrawe
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", stiffness: 380, damping: 38 }}
-            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[min(46rem,100vw)] flex-col border-l border-line bg-surface shadow-[-8px_0_32px_rgba(0,0,0,0.3)]"
+            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[min(46rem,100vw)] flex-col border-l border-rule bg-panel shadow-[-8px_0_32px_rgba(0,0,0,0.3)]"
           >
-            <header className="flex items-start gap-3 border-b border-line px-4 py-3">
+            <header className="flex items-start gap-3 border-b border-rule px-4 py-3">
               <div className="min-w-0 flex-1">
-                <p className="truncate font-mono text-[0.8125rem] text-fg">{chunk.file_path}</p>
-                <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-fg-muted">
+                <p className="truncate font-mono text-[0.8125rem] text-moon">{chunk.file_path}</p>
+                <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-moon-2">
                   <span>{chunk.node_type.replace(/_/g, " ")}</span>
                   <span aria-hidden>·</span>
-                  <span className="font-mono text-fg">{chunk.name}</span>
+                  <span className="font-mono text-moon">{chunk.name}</span>
                   <span aria-hidden>·</span>
                   <span>
                     lines {chunk.start_line}–{chunk.end_line}
                   </span>
-                  <Badge tone="accent">rank {index! + 1}</Badge>
+                  <Badge tone="lamp">rank {index! + 1}</Badge>
                   <Badge tone="neutral">score {formatScore(chunk.score)}</Badge>
                 </p>
               </div>
@@ -110,8 +110,8 @@ export function SourceDrawer({ chunks, index, onClose, onNavigate }: SourceDrawe
               <CodeBlock code={chunk.text} startLine={chunk.start_line} />
             </div>
 
-            <footer className="flex items-center justify-between gap-3 border-t border-line px-4 py-2.5">
-              <span className="text-xs text-fg-muted">
+            <footer className="flex items-center justify-between gap-3 border-t border-rule px-4 py-2.5">
+              <span className="text-xs text-moon-2">
                 {index! + 1} of {chunks.length}
               </span>
               <div className="flex gap-1.5">

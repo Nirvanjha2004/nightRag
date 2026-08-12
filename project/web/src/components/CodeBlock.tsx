@@ -63,7 +63,7 @@ export function CodeBlock({ code, startLine, className }: CodeBlockProps) {
   return (
     <div
       className={cn(
-        "overflow-x-auto rounded-control border border-line bg-canvas font-mono text-[0.78125rem] leading-[1.65]",
+        "overflow-x-auto rounded-control border border-rule bg-ink font-mono text-[0.78125rem] leading-[1.65]",
         className,
       )}
     >
@@ -74,7 +74,7 @@ export function CodeBlock({ code, startLine, className }: CodeBlockProps) {
               {startLine !== undefined && (
                 <span
                   aria-hidden
-                  className="sticky left-0 mr-4 w-11 shrink-0 select-none bg-canvas pr-2 text-right text-fg-subtle/70 tabular-nums"
+                  className="sticky left-0 mr-4 w-11 shrink-0 select-none bg-ink pr-2 text-right text-moon-3/70 tabular-nums"
                 >
                   {startLine + index}
                 </span>

@@ -9,10 +9,10 @@ export function Card({ className, children, ...props }: CardProps) {
   return (
     <div
       className={cn(
-        "rounded-card border border-line bg-surface",
-        // Depth comes from the surface ramp plus one soft shadow, not from a
-        // different shadow on every element.
-        "shadow-[0_1px_2px_rgba(0,0,0,0.18)]",
+        "rounded-panel border border-rule bg-panel",
+        // Depth comes from the surface ramp plus one shared shadow token, not
+        // from a different shadow invented per element.
+        "shadow-[var(--shadow-panel)]",
         className,
       )}
       {...props}
@@ -33,8 +33,12 @@ export function CardHeader({ title, description, action, className }: CardHeader
   return (
     <div className={cn("flex items-start justify-between gap-4 px-5 pt-5 pb-4", className)}>
       <div className="min-w-0">
-        <h2 className="text-sm font-semibold text-fg">{title}</h2>
-        {description && <p className="mt-1 text-[0.8125rem] text-fg-muted">{description}</p>}
+        {/* The display face, like every other heading in the product — a card
+            title set in the body face is where an identity quietly leaks away. */}
+        <h2 className="display text-[0.9375rem] font-semibold tracking-tight text-moon">{title}</h2>
+        {description && (
+          <p className="mt-1 text-[0.8125rem] leading-relaxed text-moon-2">{description}</p>
+        )}
       </div>
       {action && <div className="shrink-0">{action}</div>}
     </div>

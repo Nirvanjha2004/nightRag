@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from "react";
 
-export type Theme = "dark" | "light";
+/** Night is the design's home; day is the same lamp over paper. */
+export type Theme = "night" | "day";
 
 const STORAGE_KEY = "nightrag.theme";
 
 function currentTheme(): Theme {
-  const attribute = document.documentElement.getAttribute("data-theme");
-  return attribute === "light" ? "light" : "dark";
+  return document.documentElement.getAttribute("data-theme") === "day" ? "day" : "night";
 }
 
 /**
@@ -27,7 +27,7 @@ export function useTheme(): { theme: Theme; toggle: () => void } {
   }, [theme]);
 
   const toggle = useCallback(() => {
-    setTheme((current) => (current === "dark" ? "light" : "dark"));
+    setTheme((current) => (current === "night" ? "day" : "night"));
   }, []);
 
   return { theme, toggle };
