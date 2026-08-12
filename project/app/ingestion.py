@@ -1,6 +1,8 @@
 """
 ingest.py — orchestration only. No embedding logic, no Qdrant logic here.
-Walks a repo, chunks every .py file, embeds chunks, stores them in Qdrant.
+Walks a repo, chunks every supported source file (Python, JS/TS, Java, Go,
+Rust, C/C++, C#, Ruby, PHP, Kotlin, Swift — see app.chunking), embeds the
+chunks, stores them in Qdrant.
 
 Usage (keys are read from .env automatically, or pass --jina-key):
 
@@ -11,7 +13,7 @@ Usage (keys are read from .env automatically, or pass --jina-key):
     Qdrant server:
         python -m app.ingestion <repo_path> --qdrant-url http://localhost:6333
 
-    Both support: --collection <name>
+    Both support: --collection <name>, --langs py,js,ts
 
 Offline wiring check (no keys, no server): python test_pipeline.py
 """
@@ -23,7 +25,7 @@ from pathlib import Path
 
 from qdrant_client import QdrantClient
 
-from app.chunking import PythonChunker
+from app.chunking import SUPPORTED_EXTENSIONS, chunk_file
 from app.config import load_env
 from app.embedder import Embedder
 from app.vector_db import VectorDB
@@ -31,24 +33,39 @@ from app.vector_db import VectorDB
 DEFAULT_QDRANT_DIR = "qdrant_data"
 DEFAULT_COLLECTION = "code_chunks"
 
-
-# Directories that never contain code worth answering questions about, but do
-# contain thousands of .py files (a single .venv can triple an ingestion bill).
+# Directories that are never source: skip them and everything below them.
+# With multi-language ingestion this matters more than ever — node_modules,
+# build output and virtualenvs would otherwise flood the collection with
+# vendored code.
 SKIP_DIRS = frozenset({
-    ".git", ".hg", ".svn",
-    ".venv", "venv", "env", "ENV", "site-packages", "node_modules",
-    "__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".tox",
-    "build", "dist", ".eggs",
+    ".git", ".hg", ".svn", ".gradle", ".idea", ".vscode",
+    "__pycache__", ".venv", "venv", "env",
+    "node_modules", "bower_components", "vendor",
+    "dist", "build", "out", "target", "coverage", ".next", ".nuxt",
+    ".output", ".svelte-kit", ".tox", ".mypy_cache", ".pytest_cache",
+    ".ruff_cache", ".terraform", ".cache", "Pods", "DerivedData",
 })
 
 
-def find_python_files(repo_path: str) -> list[Path]:
-    """Every .py file under repo_path, skipping vendored/generated directories."""
-    return [
-        path
-        for path in Path(repo_path).rglob("*.py")
-        if not SKIP_DIRS.intersection(path.parts)
-    ]
+def find_source_files(repo_path: str, extensions=None, skip_dirs=SKIP_DIRS) -> list[Path]:
+    """Walk a repo and return every supported source file, skipping
+    vendored/build/tooling directories."""
+    extensions = SUPPORTED_EXTENSIONS if extensions is None else frozenset(extensions)
+    repo = Path(repo_path)
+    files: list[Path] = []
+    for path in repo.rglob("*"):
+        if not path.is_file():
+            continue
+        if path.suffix.lower() not in extensions:
+            continue
+        try:
+            rel_parts = path.relative_to(repo).parts
+        except ValueError:
+            rel_parts = path.parts
+        if any(part in skip_dirs for part in rel_parts):
+            continue
+        files.append(path)
+    return files
 
 
 def ingest(
@@ -57,10 +74,12 @@ def ingest(
     collection_name: str = DEFAULT_COLLECTION,
     qdrant_url: str | None = None,
     local_path: str | None = None,
+    langs: set[str] | None = None,
     vector_db: VectorDB | None = None,
     on_progress=None,
 ) -> dict:
-    """Chunk every .py file under repo_path, embed the chunks, store them in Qdrant.
+    """Chunk every supported source file under repo_path, embed the chunks,
+    store them in Qdrant.
 
     Vector DB is either a caller-supplied VectorDB (``vector_db`` — how the HTTP
     server shares its one embedded-Qdrant client), a local embedded store
@@ -85,19 +104,24 @@ def ingest(
                 "Provide a VectorDB, --local (embedded Qdrant), or --qdrant-url (server)."
             )
 
-    chunker = PythonChunker()
     embedder = Embedder(api_key=jina_api_key)
 
-    # 1. Find all .py files in the repo
-    py_files = find_python_files(repo_path)
-    report("scan", f"Found {len(py_files)} Python files in {repo_path}", files=len(py_files))
+    # 1. Find all supported source files (respecting --langs and skip dirs)
+    files = find_source_files(repo_path, extensions=langs)
+    if langs:
+        print(f"Found {len(files)} files in {repo_path} restricted to {sorted(langs)}")
+    else:
+        by_ext: dict[str, int] = {}
+        for f in files:
+            by_ext[f.suffix.lower()] = by_ext.get(f.suffix.lower(), 0) + 1
+        print(f"Found {len(files)} source files in {repo_path}: {dict(sorted(by_ext.items()))}")
 
-    # 2. Chunk every file
+    # 2. Chunk every file (language chosen by file extension)
     all_chunks = []
     skipped = []
     for file_path in py_files:
         try:
-            all_chunks.extend(chunker.chunk_file(str(file_path)))
+            all_chunks.extend(chunk_file(str(file_path)))
         except Exception as e:
             # Don't let one bad file kill the whole ingestion run —
             # but DO surface it loudly, don't swallow silently.
@@ -170,7 +194,8 @@ def main(argv: list[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(
         prog="python -m app.ingestion",
-        description="Chunk + embed + store a Python codebase into Qdrant.",
+        description="Chunk + embed + store a codebase (Python, JS/TS, Java, Go, Rust, "
+                    "C/C++, C#, Ruby, PHP, Kotlin, Swift) into Qdrant.",
     )
     parser.add_argument("repo_path", help="Path to the codebase/repo to ingest")
     parser.add_argument(
@@ -191,6 +216,11 @@ def main(argv: list[str] | None = None) -> int:
         help=f"Qdrant collection name (default: {DEFAULT_COLLECTION})",
     )
     parser.add_argument(
+        "--langs",
+        default=None,
+        help="Comma-separated extensions to ingest, e.g. 'py,js,ts'. Default: all supported.",
+    )
+    parser.add_argument(
         "--jina-key",
         default=None,
         help="Jina API key (defaults to jina_api_key from .env)",
@@ -205,6 +235,16 @@ def main(argv: list[str] | None = None) -> int:
         print("No Jina API key found. Set jina_api_key in .env or pass --jina-key.")
         return 2
 
+    langs: set[str] | None = None
+    if args.langs:
+        langs = {f".{token.strip().lstrip('.')}" for token in args.langs.split(",") if token.strip()}
+        unsupported = langs - SUPPORTED_EXTENSIONS
+        if unsupported:
+            parser.error(
+                f"Unsupported extension(s): {', '.join(sorted(unsupported))}. "
+                f"Supported: {', '.join(sorted(SUPPORTED_EXTENSIONS))}"
+            )
+
     try:
         ingest(
             repo_path=args.repo_path,
@@ -212,6 +252,7 @@ def main(argv: list[str] | None = None) -> int:
             collection_name=args.collection,
             qdrant_url=args.qdrant_url,
             local_path=args.local,
+            langs=langs,
         )
     except ValueError as e:
         print(f"Error: {e}")

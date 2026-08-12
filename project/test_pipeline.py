@@ -613,6 +613,157 @@ def _check_corrective_rag() -> None:
     print("OK: CRAG still refines (no rewrite round) when the rewriter raises")
 
 
+def _check_multilang_chunker() -> None:
+    """Multi-language chunker: dispatches by extension, splits classes into
+    header + methods, and keeps chunk ids deterministic across re-chunks.
+
+    Samples are written to temp files and chunked through the extension
+    registry. Languages whose grammar package is missing are skipped.
+    """
+    import tempfile
+    from pathlib import Path
+
+    from app import chunking
+
+    samples = {
+        ".py": "class Greeter:\n    def greet(self):\n        return 'hi'\n\ndef add(a, b):\n    return a + b\n",
+        ".js": "export function add(a, b) { return a + b; }\n\nclass Greeter {\n  greet() { return 'hi'; }\n}\n",
+        ".ts": "interface Shape { area(): number; }\n\nexport class Greeter {\n  greet(): string { return 'hi'; }\n}\n",
+        ".java": "public class Greeter {\n    private String msg = \"hi\";\n    public String greet() { return msg; }\n}\n",
+        ".go": "package main\n\nfunc add(a, b int) int { return a + b }\n\ntype Greeter struct{}\n\nfunc (g *Greeter) Greet() string { return \"hi\" }\n",
+        ".rs": "fn add(a: i32, b: i32) -> i32 { a + b }\n\nstruct Greeter;\n\nimpl Greeter {\n    fn greet(&self) -> &'static str { \"hi\" }\n}\n",
+        ".c": "int add(int a, int b) { return a + b; }\n\nstruct Greeter { int x; };\n",
+        ".cpp": "class Greeter {\npublic:\n    std::string greet() { return \"hi\"; }\n};\n\nint add(int a, int b) { return a + b; }\n",
+        ".cs": "namespace App {\npublic class Greeter {\n    public string Greet() { return \"hi\"; }\n}\n}\n",
+        ".rb": "class Greeter\n  def greet\n    'hi'\n  end\nend\n",
+        ".php": "<?php\nfunction add(int $a, int $b) { return $a + $b; }\n\nclass Greeter {\n    public function greet() { return 'hi'; }\n}\n",
+        ".kt": "class Greeter {\n    fun greet(): String { return \"hi\" }\n}\n",
+        ".swift": "class Greeter {\n    func greet() -> String { return \"hi\" }\n}\n",
+    }
+
+    # Backward compatibility: the old class name keeps working and must agree
+    # with the extension dispatcher (same ids, same chunks).
+    from app.chunking import PythonChunker
+
+    chunks_py = PythonChunker().chunk_file(__file__)
+    assert chunks_py, "PythonChunker produced no chunks for test_pipeline.py"
+    dispatched = chunking.chunk_file(__file__)
+    assert [c.id for c in dispatched] == [c.id for c in chunks_py], (
+        "PythonChunker and the extension dispatcher must agree on chunk ids"
+    )
+
+    with tempfile.TemporaryDirectory() as tmp:
+        checked = 0
+        for ext, code in samples.items():
+            if ext not in chunking.SUPPORTED_EXTENSIONS:
+                print(f"SKIP {ext}: grammar not installed")
+                continue
+            path = Path(tmp) / f"sample{ext}"
+            path.write_text(code, encoding="utf-8")
+            chunks = chunking.chunk_file(str(path))
+            assert chunks, f"{ext}: no chunks produced"
+
+            names = [c.name for c in chunks]
+            types = {c.node_type for c in chunks}
+            assert any("Greeter" in n for n in names), f"{ext}: missing class chunk, got {names}"
+
+            if ext == ".c":  # C sample has no methods — struct + function only
+                assert "add" in names, f"{ext}: missing function chunk, got {names}"
+                assert "function_definition" in types
+            else:
+                # scopes must qualify member names (namespace App -> App.Greeter.Greet)
+                if ext == ".cs":
+                    assert any(n.startswith("App.") for n in names), (
+                        f"{ext}: namespace qualification missing, got {names}"
+                    )
+                assert "method_definition" in types, f"{ext}: missing method_definition, got {sorted(types)}"
+                assert any(n.endswith(("greet", "Greet")) for n in names), (
+                    f"{ext}: missing method chunk, got {names}"
+                )
+
+            # ids must be stable across re-chunking (ingest overwrite-safe)
+            again = chunking.chunk_file(str(path))
+            assert [c.id for c in again] == [c.id for c in chunks], f"{ext}: ids not stable"
+            checked += 1
+
+    assert checked >= 3, f"expected at least 3 languages checkable, got {checked}"
+    print(f"OK: multi-language chunker covers {checked} languages (+ Python)")
+
+
+def _check_chunker_dedup() -> None:
+    """Repeated names (Java overloads, duplicate Rust impls) must not collide
+    on chunk ids — the second occurrence gets a deterministic #2 suffix."""
+    import tempfile
+    from pathlib import Path
+
+    from app import chunking
+
+    samples = {
+        ".java": (
+            "class A {\n    int f(int x) { return x; }\n    int f(String s) { return 1; }\n}\n",
+            ["A.f", "A.f#2"],
+        ),
+        ".rs": (
+            "impl A { fn go(&self) {} }\nimpl A { fn go(&self) {} }\n",
+            ["A.go", "A#2.go"],
+        ),
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        for ext, (code, expected) in samples.items():
+            if ext not in chunking.SUPPORTED_EXTENSIONS:
+                continue
+            path = Path(tmp) / f"sample{ext}"
+            path.write_text(code, encoding="utf-8")
+            chunks = chunking.chunk_file(str(path))
+            names = [c.name for c in chunks]
+            for wanted in expected:
+                assert wanted in names, f"{ext}: dedup failed, got {names}"
+            ids = [c.id for c in chunks]
+            assert len(ids) == len(set(ids)), f"{ext}: duplicate chunk ids"
+            again = chunking.chunk_file(str(path))
+            assert [c.id for c in again] == ids, f"{ext}: dedup ids not stable"
+    print("OK: repeated names (overloads/impls) get distinct, stable ids")
+
+
+def _check_chunker_docs() -> None:
+    """Leading docs fold only when adjacent: a Rust `#[cfg(test)]` on a mod
+    lands in the mod's first member chunk, but a comment separated by blank
+    lines is not glued to the def below it."""
+    import tempfile
+    from pathlib import Path
+
+    from app import chunking
+
+    with tempfile.TemporaryDirectory() as tmp:
+        if ".rs" in chunking.SUPPORTED_EXTENSIONS:
+            path = Path(tmp) / "m.rs"
+            path.write_text("#[cfg(test)]\nmod tests {\n    fn helper() {}\n}\n", encoding="utf-8")
+            chunks = chunking.chunk_file(str(path))
+            assert any("tests.helper" in c.name for c in chunks), (
+                f"mod member missing, got {[c.name for c in chunks]}"
+            )
+            assert any("#[cfg(test)]" in c.text for c in chunks), (
+                f"cfg attribute lost: {[c.text[:40] for c in chunks]}"
+            )
+
+        if ".py" in chunking.SUPPORTED_EXTENSIONS:
+            # A comment with a blank-line gap is NOT the def's doc.
+            path = Path(tmp) / "gap.py"
+            path.write_text("# File-level note about the module.\n\n\ndef foo():\n    pass\n", encoding="utf-8")
+            chunks = chunking.chunk_file(str(path))
+            assert chunks and "File-level note" not in chunks[0].text, (
+                "distant comment must not be folded into the def chunk"
+            )
+            # An adjacent comment IS the def's doc.
+            path = Path(tmp) / "adjacent.py"
+            path.write_text("# doc for foo\ndef foo():\n    pass\n", encoding="utf-8")
+            chunks = chunking.chunk_file(str(path))
+            assert chunks and chunks[0].text.startswith("# doc for foo"), (
+                "adjacent comment must be folded into the def chunk"
+            )
+    print("OK: leading docs fold when adjacent only")
+
+
 if __name__ == "__main__":
     main()
     _check_keyword_score()
@@ -623,3 +774,6 @@ if __name__ == "__main__":
     _check_llm_reranker()
     _check_prompt_wiring()
     _check_corrective_rag()
+    _check_multilang_chunker()
+    _check_chunker_dedup()
+    _check_chunker_docs()

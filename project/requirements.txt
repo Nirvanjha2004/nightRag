@@ -1,16 +1,18 @@
-# Runtime dependencies for the pipeline, the CLI and the HTTP server.
-# Evaluation extras live in requirements-eval.txt.
-
-# Chunking — tree-sitter parses Python into functions/classes/methods.
 tree-sitter>=0.26.0
 tree-sitter-python>=0.25.0
-
-# Retrieval + generation
-requests>=2.32.0
-qdrant-client>=1.10.0
-groq>=1.6.0
-
-# HTTP API and the static host for the built web UI.
-fastapi>=0.115.0
-uvicorn[standard]>=0.32.0
-python-multipart>=0.0.17
+tree-sitter-javascript>=0.25.0
+tree-sitter-typescript>=0.23.0
+tree-sitter-java>=0.23.0
+tree-sitter-go>=0.25.0
+tree-sitter-rust>=0.24.0
+tree-sitter-c>=0.24.0
+tree-sitter-cpp>=0.23.0
+tree-sitter-c-sharp>=0.23.0
+tree-sitter-ruby>=0.23.0
+tree-sitter-php>=0.24.0
+tree-sitter-kotlin>=1.1.0
+tree-sitter-swift>=0.7.0
+requests
+qdrant-client
+groq
+ragas

@@ -13,6 +13,7 @@ Every time we change something and re-run the benchmark, add a new numbered entr
 | 02 | 2026-08-06 | [02-ragas-eval-qwen3b.md](02-ragas-eval-qwen3b.md) | RAGAS: recall **0.80** / prec **0.90** / corr **0.70** / faith **0.34** (20Q) | — | First RAGAS quality eval — local Ollama `qwen2.5:3b` judge + Jina embeddings (different metric, not comparable to the X/50 score) |
 | 03 | 2026-08-07 | [03-hybrid-retrieval.md](03-hybrid-retrieval.md) | RAGAS: recall **0.84** / prec **0.82** / corr **0.67** / faith **0.60** (20Q) | +0.04 rec, +0.26 faith; −0.07 prec, −0.03 corr | **Hybrid retrieval** — BM25 + dense fused with RRF (idea #4 done); recall win (E05 fixed) but precision noise |
 | 04 | 2026-08-09 | [04-llm-reranker.md](04-llm-reranker.md) | RAGAS: recall **0.94** / prec **0.82** / corr **0.70** / faith **0.80** (18/20 scored) | +0.07 rec, +0.13 faith, +0.02 prec, +0.04 corr (same 18 rows) | **LLM reranker** — Groq-scored re-ranking of 10 hybrid candidates → top 5 (idea #5 done); all four metrics up on the identical rows, but precision flat (E19 prec 0.0 new) |
+| 05 | 2026-08-12 | [05-multilang-chunker.md](05-multilang-chunker.md) | n/a (no eval run — benchmark set is Python-only) | — | **Multi-language chunker** — config-driven tree-sitter chunking for JS/TS, Java, Go, Rust, C/C++, C#, Ruby, PHP, Kotlin, Swift; ingestion auto-detects by extension (+ `--langs`) and skips vendor dirs |
 
 _How to read a row: Score = keyword-hit PASS count / 50 questions (run 01) or RAGAS metric means over the
 20-question set (runs 02–04). Δ = change vs previous run._
@@ -103,7 +104,7 @@ Prioritized hypotheses to test in future runs — each will get its own journal 
 
 | # | Idea | Failure class it targets | Est. impact |
 |---|------|--------------------------|-------------|
-| 1 | **Split large classes into method-level chunks** (+ prepend class header for context) | retrieval gaps (9/20) | High |
+| 1 | ~~**Split large classes into method-level chunks** (+ prepend class header for context)~~ — **DONE** (Python in the earlier chunker v2; generalized to 13 languages + header/signature/doc-comment chunks in [05-multilang-chunker.md](05-multilang-chunker.md)) | retrieval gaps (9/20) | High ✅ |
 | 2 | **Calibrate keyword scoring** (plurals, verb forms, module qualifiers) | keyword mismatches (10/20) | High — makes the score honest |
 | 3 | **Restore the prompt-size cap** (`_MAX_PROMPT_CHARS`/`_truncate` in `app/prompt_builder.py` — currently missing from source) | 413/TPM risk — more relevant now the reranker reads 10 chunks | Medium |
 | ~~4~~ | ~~**Hybrid retrieval**: BM25 + dense (reciprocal rank fusion)~~ — **DONE in run 03** ([03-hybrid-retrieval.md](03-hybrid-retrieval.md)) | retrieval gaps | Medium ✅ |
@@ -117,5 +118,5 @@ Prioritized hypotheses to test in future runs — each will get its own journal 
 | 12 | **Persist the BM25 index** at ingestion time (pickle next to `qdrant_data`) instead of rebuilding at every process start | startup cost as the corpus grows | Low–Medium |
 
 See [01-baseline-30-50.md](01-baseline-30-50.md), [02-ragas-eval-qwen3b.md](02-ragas-eval-qwen3b.md),
-[03-hybrid-retrieval.md](03-hybrid-retrieval.md), and [04-llm-reranker.md](04-llm-reranker.md) for the
-analysis behind these.
+[03-hybrid-retrieval.md](03-hybrid-retrieval.md), [04-llm-reranker.md](04-llm-reranker.md), and
+[05-multilang-chunker.md](05-multilang-chunker.md) for the analysis behind these.
