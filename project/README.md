@@ -164,6 +164,29 @@ Two things to change before that:
 - Put it behind your own authentication. NightRag has none, and both API keys
   are spendable by anyone who can reach `/api/ask`.
 
+### Deploying to Render
+
+The repo ships a `render.yaml` Blueprint and a multi-stage `Dockerfile` that
+builds the web UI and runs the API in one container. To deploy:
+
+1. Push this repo to GitHub.
+2. Render dashboard → **New +** → **Blueprint** → pick the repo.
+3. Paste `JINA_API_KEY` and `GROQ_API_KEY` in the **Environment** tab (the
+   Blueprint leaves them blank on purpose).
+4. Storage — pick one:
+   - **Paid instance (Starter $7/mo)**: keep the Blueprint's persistent disk,
+     mounted at `/data`. The index survives redeploys.
+   - **Free plan**: remove the `disk:` block and set `NIGHTRAG_QDRANT_URL` to a
+     hosted Qdrant (e.g. Qdrant Cloud free tier) plus `NIGHTRAG_QDRANT_API_KEY`.
+     The embedded store cannot work on the free plan — its filesystem is wiped
+     on every redeploy.
+5. Deploy, then check **Logs** and open `https://<your-app>.onrender.com`.
+
+Render injects `PORT` and the app listens on it automatically (settings fall
+back from `NIGHTRAG_PORT` to `PORT`); the health check is `/api/health`. Keep
+`NIGHTRAG_ALLOW_LOCAL_PATH=0` (the Dockerfile sets it) and know that the URL is
+public — anyone with it can spend your API keys.
+
 ---
 
 ## Development

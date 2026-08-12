@@ -1,0 +1,71 @@
+# Render Blueprint - deploy NightRag in one click.
+#
+# Two ways to use this file:
+#   1. Dashboard: "New +" -> "Blueprint" -> pick your repo (it finds render.yaml).
+#   2. Auto: push render.yaml to your GitHub repo; Render's Blueprint PR flow
+#      can spin up a preview from it.
+#
+# The multi-stage Dockerfile already builds the React UI and runs the FastAPI
+# server, so the whole app is ONE web service - no separate static site.
+#
+# IMPORTANT - storage:
+#   Persistent disks need a PAID instance (Starter $7/mo or higher). If you
+#   stay on the Free plan, remove the `disk:` block and set NIGHTRAG_QDRANT_URL
+#   (e.g. Qdrant Cloud free tier - the app now also reads QDRANT_API_KEY) -
+#   otherwise the embedded index is wiped on every redeploy and the service
+#   spins down when idle.
+#
+# IMPORTANT - secrets:
+#   JINA_API_KEY and GROQ_API_KEY are `sync: false`, so the first deploy pauses
+#   until you paste them into the dashboard (Environment tab). They are never
+#   stored in this file.
+
+services:
+  - type: web
+    name: nightrag
+    runtime: docker
+    repo: https://github.com/YOUR_USERNAME/nightRag   # <- your repo URL
+    plan: starter
+    healthCheckPath: /api/health
+    dockerContext: .
+
+    envVars:
+      - key: NIGHTRAG_HOST
+        value: 0.0.0.0
+      # Render injects PORT (default ~10000); settings.py falls back to it when
+      # NIGHTRAG_PORT is unset, so the container listens where Render expects.
+      - key: JINA_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      # Optional overrides - uncomment to use:
+      # - key: NIGHTRAG_MODEL
+      #   value: openai/gpt-oss-120b
+      # - key: NIGHTRAG_COLLECTION
+      #   value: code_chunks
+      # - key: NIGHTRAG_CORS_ORIGINS
+      #   value: https://your-frontend.example.com
+
+    disk:
+      name: qdrant-data
+      mountPath: /data
+      sizeGB: 1
+
+  # --- Free-plan alternative: hosted Qdrant instead of the disk ------------
+  # - type: web
+  #   name: nightrag
+  #   runtime: docker
+  #   repo: https://github.com/YOUR_USERNAME/nightRag
+  #   plan: free
+  #   healthCheckPath: /api/health
+  #   envVars:
+  #     - key: NIGHTRAG_HOST
+  #       value: 0.0.0.0
+  #     - key: NIGHTRAG_QDRANT_URL
+  #       value: https://YOUR-CLUSTER.cloud.qdrant.io
+  #     - key: NIGHTRAG_QDRANT_API_KEY
+  #       value: your-qdrant-cloud-key
+  #     - key: JINA_API_KEY
+  #       sync: false
+  #     - key: GROQ_API_KEY
+  #       sync: false

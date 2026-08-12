@@ -45,9 +45,10 @@ class Settings:
     groq_api_key: str = ""
 
     # Storage: an embedded Qdrant directory owned by this process, or a URL of
-    # a Qdrant server shared with other processes.
+    # a Qdrant server shared with other processes (e.g. Qdrant Cloud).
     qdrant_dir: str = "qdrant_data"
     qdrant_url: str | None = None
+    qdrant_api_key: str = ""  # required by hosted Qdrant (Qdrant Cloud)
 
     default_collection: str = DEFAULT_COLLECTION
     default_model: str = DEFAULT_MODEL
@@ -92,10 +93,13 @@ def load_settings(env_file: str = ".env") -> Settings:
         groq_api_key=_env("groq_api_key", "GROQ_API_KEY"),
         qdrant_dir=_env("NIGHTRAG_QDRANT_DIR", "QDRANT_DIR", default="qdrant_data"),
         qdrant_url=qdrant_url or None,
+        qdrant_api_key=_env("NIGHTRAG_QDRANT_API_KEY", "QDRANT_API_KEY"),
         default_collection=_env("NIGHTRAG_COLLECTION", default=DEFAULT_COLLECTION),
         default_model=_env("NIGHTRAG_MODEL", "GROQ_MODEL", default=DEFAULT_MODEL),
         host=_env("NIGHTRAG_HOST", default="127.0.0.1"),
-        port=_env_int("NIGHTRAG_PORT", 8000),
+        # PORT is the convention every PaaS (Render, Heroku, Fly) injects, so
+        # NIGHTRAG_PORT wins when set and plain `PORT` is the platform default.
+        port=_env_int("NIGHTRAG_PORT", _env_int("PORT", 8000)),
         cors_origins=[o.strip() for o in origins.split(",") if o.strip()],
         allow_local_path=_env_bool("NIGHTRAG_ALLOW_LOCAL_PATH", True),
         allow_git_clone=_env_bool("NIGHTRAG_ALLOW_GIT_CLONE", True),

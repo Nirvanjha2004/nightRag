@@ -52,7 +52,10 @@ class RagEngine:
         with self._lock:
             if self._vector_db is None:
                 if self.settings.qdrant_url:
-                    client = QdrantClient(url=self.settings.qdrant_url)
+                    client = QdrantClient(
+                        url=self.settings.qdrant_url,
+                        api_key=self.settings.qdrant_api_key or None,
+                    )
                 else:
                     client = QdrantClient(path=self.settings.qdrant_dir)
                 self._vector_db = VectorDB(client=client)

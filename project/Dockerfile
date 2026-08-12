@@ -21,10 +21,12 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
 
+# No NIGHTRAG_PORT here on purpose: platform-provided PORT (Render, Heroku,
+# Fly) must win, and settings.py falls back to 8000 when nothing is set
+# (which is what docker-compose maps).
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     NIGHTRAG_HOST=0.0.0.0 \
-    NIGHTRAG_PORT=8000 \
     NIGHTRAG_QDRANT_DIR=/data/qdrant
 
 COPY requirements.txt ./
