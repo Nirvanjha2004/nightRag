@@ -4,6 +4,7 @@ Takes a finished prompt string, returns the generated answer text.
 """
 
 import time
+from typing import Iterator
 
 from groq import Groq, APIStatusError
 
@@ -81,10 +82,7 @@ class Generator:
         errors (400, 404, ...) propagate immediately.
         """
 
-        messages = []
-        if system_prompt:
-            messages.append({"role": "system", "content": system_prompt})
-        messages.append({"role": "user", "content": prompt})
+        messages = _build_messages(prompt, system_prompt)
 
         for attempt in range(self.max_retries):
             try:
@@ -94,7 +92,7 @@ class Generator:
                     temperature=temperature,
                     max_tokens=max_tokens,
                 )
-                return response.choices[0].message.content   
+                return response.choices[0].message.content
             except APIStatusError as error:
                 if not _is_rate_limit_error(error):
                     raise
@@ -103,3 +101,56 @@ class Generator:
                 time.sleep(_backoff_seconds(error, attempt))
 
         raise RuntimeError("unreachable")  # loop always returns or raises
+
+    def generate_stream(
+        self,
+        prompt: str,
+        system_prompt: str | None = None,
+        temperature: float = 0.1,
+        max_tokens: int = 1024,
+    ) -> Iterator[str]:
+        """Same call as generate(), but yield the answer in deltas as it arrives.
+
+        Used by the HTTP server so the UI can render the answer while the model
+        is still writing it. Rate limits are retried exactly as in generate(),
+        but ONLY before the first delta is yielded: once the caller has seen
+        part of an answer, restarting the stream would duplicate text, so a
+        mid-stream failure propagates instead.
+        """
+        messages = _build_messages(prompt, system_prompt)
+
+        for attempt in range(self.max_retries):
+            started = False
+            try:
+                stream = self.client.chat.completions.create(
+                    model=self.model,
+                    messages=messages,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    stream=True,
+                )
+                for chunk in stream:
+                    if not chunk.choices:
+                        continue
+                    delta = chunk.choices[0].delta.content
+                    if delta:
+                        started = True
+                        yield delta
+                return
+            except APIStatusError as error:
+                if started or not _is_rate_limit_error(error):
+                    raise
+                if attempt == self.max_retries - 1:
+                    raise
+                time.sleep(_backoff_seconds(error, attempt))
+
+        raise RuntimeError("unreachable")  # loop always returns or raises
+
+
+def _build_messages(prompt: str, system_prompt: str | None) -> list[dict]:
+    """Chat message list: optional system turn, then the user turn."""
+    messages = []
+    if system_prompt:
+        messages.append({"role": "system", "content": system_prompt})
+    messages.append({"role": "user", "content": prompt})
+    return messages

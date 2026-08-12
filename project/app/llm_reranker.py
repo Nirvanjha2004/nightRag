@@ -28,6 +28,7 @@ import json
 import re
 from dataclasses import replace
 
+from app import trace
 from app.retriever import RetrievedChunk
 
 # Neutral score when a chunk's rating is missing/unparseable — lands it in the
@@ -149,8 +150,20 @@ class LLMReranker:
 
         # Nothing to re-rank: no scoring call needed (and no wasted tokens).
         if len(candidates) <= top_k:
+            trace.emit(
+                trace.RERANK,
+                "skipped",
+                f"Only {len(candidates)} candidate(s) — nothing to re-rank",
+                count=len(candidates),
+            )
             return candidates
 
+        trace.emit(
+            trace.RERANK,
+            "start",
+            f"Scoring {len(candidates)} candidates 1-5 for relevance",
+            candidates=len(candidates),
+        )
         try:
             scores = self._score_all(query, candidates)
         except Exception as e:
@@ -160,11 +173,19 @@ class LLMReranker:
             # uses the same generator and will raise if the key/endpoint is
             # genuinely broken.
             print(f"[reranker] scoring failed ({type(e).__name__}: {e}); using base order")
+            trace.emit(
+                trace.RERANK,
+                "error",
+                f"Scoring failed ({type(e).__name__}); keeping fused order",
+            )
             return candidates[:top_k]
 
         # Total parse failure (e.g. every response was unusable) — don't make
         # retrieval worse than the base retriever: hand back the original order.
         if not scores:
+            trace.emit(
+                trace.RERANK, "error", "No usable scores returned; keeping fused order"
+            )
             return candidates[:top_k]
 
         # Stable sort by LLM score desc — ties keep the original fused rank.
@@ -172,13 +193,20 @@ class LLMReranker:
                   for i, candidate in enumerate(candidates)]
         scored.sort(key=lambda pair: pair[1], reverse=True)
 
+        dropped = 0
         if self.min_score is not None:
+            before = len(scored)
             scored = [pair for pair in scored if pair[1] >= self.min_score]
+            dropped = before - len(scored)
 
-        return [
-            replace(chunk, score=rating)
-            for chunk, rating in scored[:top_k]
-        ]
+        kept = [replace(chunk, score=rating) for chunk, rating in scored[:top_k]]
+        message = f"Kept top {len(kept)} by LLM relevance"
+        if kept:
+            message += f" (best {kept[0].score:g}/5)"
+        if dropped:
+            message += f"; {dropped} below min score {self.min_score:g}"
+        trace.emit(trace.RERANK, "done", message, count=len(kept), dropped=dropped)
+        return kept
 
     def _score_all(self, query: str, candidates: list[RetrievedChunk]) -> dict[int, float]:
         """Score every candidate 1-5 with the LLM, in batches of batch_size.

@@ -32,54 +32,99 @@ DEFAULT_QDRANT_DIR = "qdrant_data"
 DEFAULT_COLLECTION = "code_chunks"
 
 
+# Directories that never contain code worth answering questions about, but do
+# contain thousands of .py files (a single .venv can triple an ingestion bill).
+SKIP_DIRS = frozenset({
+    ".git", ".hg", ".svn",
+    ".venv", "venv", "env", "ENV", "site-packages", "node_modules",
+    "__pycache__", ".mypy_cache", ".pytest_cache", ".ruff_cache", ".tox",
+    "build", "dist", ".eggs",
+})
+
+
+def find_python_files(repo_path: str) -> list[Path]:
+    """Every .py file under repo_path, skipping vendored/generated directories."""
+    return [
+        path
+        for path in Path(repo_path).rglob("*.py")
+        if not SKIP_DIRS.intersection(path.parts)
+    ]
+
+
 def ingest(
     repo_path: str,
     jina_api_key: str,
     collection_name: str = DEFAULT_COLLECTION,
     qdrant_url: str | None = None,
     local_path: str | None = None,
-):
+    vector_db: VectorDB | None = None,
+    on_progress=None,
+) -> dict:
     """Chunk every .py file under repo_path, embed the chunks, store them in Qdrant.
 
-    Vector DB is either a local embedded store (local_path) or a running
-    Qdrant server (qdrant_url). Exactly one must be provided.
+    Vector DB is either a caller-supplied VectorDB (``vector_db`` — how the HTTP
+    server shares its one embedded-Qdrant client), a local embedded store
+    (``local_path``), or a running Qdrant server (``qdrant_url``). Exactly one
+    must be provided.
+
+    ``on_progress(step, message, **detail)`` is called at each phase boundary so
+    a UI can follow a long run; it defaults to printing, which is what the CLI
+    has always done.
+
+    Returns a summary dict: files, chunks, skipped, vector_size, stored, count.
     """
-    if local_path:
-        client = QdrantClient(path=local_path)
-    elif qdrant_url:
-        client = QdrantClient(url=qdrant_url)
-    else:
-        raise ValueError("Provide either --local (embedded Qdrant) or --qdrant-url (server).")
+    report = on_progress or (lambda step, message, **detail: print(message))
+
+    if vector_db is None:
+        if local_path:
+            vector_db = VectorDB(client=QdrantClient(path=local_path))
+        elif qdrant_url:
+            vector_db = VectorDB(client=QdrantClient(url=qdrant_url))
+        else:
+            raise ValueError(
+                "Provide a VectorDB, --local (embedded Qdrant), or --qdrant-url (server)."
+            )
 
     chunker = PythonChunker()
     embedder = Embedder(api_key=jina_api_key)
-    vector_db = VectorDB(client=client)
 
     # 1. Find all .py files in the repo
-    py_files = list(Path(repo_path).rglob("*.py"))
-    print(f"Found {len(py_files)} Python files in {repo_path}")
+    py_files = find_python_files(repo_path)
+    report("scan", f"Found {len(py_files)} Python files in {repo_path}", files=len(py_files))
 
     # 2. Chunk every file
     all_chunks = []
+    skipped = []
     for file_path in py_files:
         try:
             all_chunks.extend(chunker.chunk_file(str(file_path)))
         except Exception as e:
             # Don't let one bad file kill the whole ingestion run —
             # but DO surface it loudly, don't swallow silently.
-            print(f"  [SKIPPED - parse error] {file_path}: {e}")
+            skipped.append(str(file_path))
+            report("chunk", f"  [SKIPPED - parse error] {file_path}: {e}")
 
-    print(f"Total chunks extracted: {len(all_chunks)}")
+    report(
+        "chunk",
+        f"Total chunks extracted: {len(all_chunks)}",
+        chunks=len(all_chunks),
+        skipped=len(skipped),
+    )
 
     if not all_chunks:
-        print("No chunks found — stopping before touching embedder/Qdrant.")
-        return
+        report("done", "No chunks found — stopping before touching embedder/Qdrant.")
+        return {
+            "files": len(py_files),
+            "chunks": 0,
+            "skipped": skipped,
+            "vector_size": 0,
+            "stored": 0,
+            "count": 0,
+        }
 
-    # 3. Embed all chunks in one batched call
-    #    ponytail: one request for the whole repo — Jina caps batches at ~2048 inputs,
-    #    so very large repos will need this looped in chunks-of-chunks.
+    # 3. Embed all chunks in batches (Embedder batches internally at 128).
     texts = [c.text for c in all_chunks]
-    print(f"Embedding {len(texts)} chunks...")
+    report("embed", f"Embedding {len(texts)} chunks...", chunks=len(texts))
     embeddings = embedder.embed_chunks(texts)
 
     if len(embeddings) != len(all_chunks):
@@ -91,19 +136,33 @@ def ingest(
     # 4. Create the collection sized to the model's real output dim.
     #    (Chunk.id is already a deterministic UUID, valid as a Qdrant point id.)
     vector_size = len(embeddings[0])
-    print(f"Embedding dimension detected: {vector_size}")
+    report("store", f"Embedding dimension detected: {vector_size}", vector_size=vector_size)
     vector_db.create_collection(collection_name, vector_size=vector_size)
 
     # 5. Store everything
     vector_db.store_embeddings(collection_name, all_chunks, embeddings)
-
-    print(f"\nIngestion complete: {len(all_chunks)} chunks stored in '{collection_name}'.")
+    report("store", f"Stored {len(all_chunks)} chunks in '{collection_name}'.")
 
     # 6. Sanity check — does Qdrant's reported count match what we sent?
-    count = vector_db.client.count(collection_name).count
-    print(f"Qdrant reports {count} points in collection (expected {len(all_chunks)}).")
+    count = vector_db.count(collection_name)
+    report(
+        "done",
+        f"Ingestion complete: {count} points in '{collection_name}' "
+        f"(expected {len(all_chunks)}).",
+        count=count,
+        chunks=len(all_chunks),
+    )
     if count != len(all_chunks):
-        print("  WARNING: mismatch — investigate before trusting this collection.")
+        report("done", "  WARNING: mismatch — investigate before trusting this collection.")
+
+    return {
+        "files": len(py_files),
+        "chunks": len(all_chunks),
+        "skipped": skipped,
+        "vector_size": vector_size,
+        "stored": len(all_chunks),
+        "count": count,
+    }
 
 
 def main(argv: list[str] | None = None) -> int:

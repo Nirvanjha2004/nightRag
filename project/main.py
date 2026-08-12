@@ -37,20 +37,18 @@ import sys
 
 from qdrant_client import QdrantClient
 
-from app.bm25_retriever import BM25Retriever
 from app.config import load_env
-from app.embedder import Embedder
-from app.generator import Generator
-from app.corrective_rag import CorrectiveRagOrchestrator
-from app.hybrid_retriever import HybridRetriever
-from app.llm_reranker import LLMReranker
+from app.factory import (
+    DEFAULT_COLLECTION,
+    DEFAULT_MODEL,
+    PipelineConfig,
+    build_bm25_retriever,
+)
+from app.factory import build_orchestrator as build_pipeline
 from app.rag_pipeline import RagOrchestrator
-from app.retriever import Retriever, chunk_from_payload
 from app.vector_db import VectorDB
 
 DEFAULT_QDRANT_DIR = "qdrant_data"
-DEFAULT_COLLECTION = "code_chunks"
-DEFAULT_MODEL = "openai/gpt-oss-120b"
 
 
 def build_orchestrator(
@@ -89,56 +87,35 @@ def build_orchestrator(
 
     vector_db = VectorDB(client=QdrantClient(path=qdrant_dir))
 
-    collection_names = {c.name for c in vector_db.client.get_collections().collections}
-    if collection not in collection_names:
+    if collection not in vector_db.collection_names():
         print(f"Collection '{collection}' not found in {qdrant_dir}.")
         print("Run ingestion first:  python -m app.ingestion sample_code --local")
         sys.exit(1)
 
-    semantic_retriever = Retriever(
-        embedder=Embedder(api_key=jina_api_key),
-        vector_db=vector_db,
-        collection_name=collection,
-    )
-
-    # Hybrid: build the BM25 index over the exact chunks stored in Qdrant,
-    # then run BM25 + semantic retrieval concurrently and fuse with RRF.
-    #
-    # ponytail: the whole collection is scrolled + re-indexed in memory on
-    # every process start — O(chunks) reads at startup, O(chunks) per query
-    # to score. Fine for repo-scale corpora. If it ever gets slow, persist the
-    # index at ingestion time (e.g. pickle next to qdrant_data) and load it
-    # here instead of rebuilding.
-    points = vector_db.get_all_points(collection)
-    chunks = [chunk_from_payload(p.payload, 0.0) for p in points]
-    bm25_retriever = BM25Retriever(chunks)
-    print(f"BM25 index built over {len(chunks)} chunks.")
-
-    hybrid = HybridRetriever(
-        semantic_retriever=semantic_retriever,
-        bm25_retriever=bm25_retriever,
-        rrf_k=rrf_k,
-    )
-
-    # The generator is shared: it produces the reranker's relevance ratings AND
-    # the final answer (its 429/413 retry-with-backoff protects both callers).
-    generator = Generator(api_key=groq_api_key, model=model)
+    bm25_retriever = build_bm25_retriever(vector_db, collection)
+    print(f"BM25 index built over {len(bm25_retriever.chunks)} chunks.")
 
     if rerank:
-        retriever = LLMReranker(
-            base_retriever=hybrid,
-            generator=generator,
-            candidate_k=candidate_k,
-            min_score=min_score,
-        )
         print(f"LLM reranker enabled (candidate_k={candidate_k}, min_score={min_score}).")
-    else:
-        retriever = hybrid
-
     if crag:
         print("Corrective RAG enabled (retrieval evaluator + query rewrite + knowledge refinement).")
-        return CorrectiveRagOrchestrator(retriever=retriever, generator=generator, top_k=top_k)
-    return RagOrchestrator(retriever=retriever, generator=generator, top_k=top_k)
+
+    return build_pipeline(
+        vector_db=vector_db,
+        jina_api_key=jina_api_key,
+        groq_api_key=groq_api_key,
+        config=PipelineConfig(
+            collection=collection,
+            model=model,
+            top_k=top_k,
+            rrf_k=rrf_k,
+            candidate_k=candidate_k,
+            min_score=min_score,
+            rerank=rerank,
+            crag=crag,
+        ),
+        bm25_retriever=bm25_retriever,
+    )
 
 
 def print_answer(result) -> None:

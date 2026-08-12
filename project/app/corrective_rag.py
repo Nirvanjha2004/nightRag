@@ -34,9 +34,10 @@ import json
 import math
 import re
 
+from app import trace
 from app.llm_reranker import MAX_CHUNK_CHARS, format_chunk
 from app.prompt_builder import build_prompt
-from app.rag_pipeline import RagOrchestrator, RagResult
+from app.rag_pipeline import RagContext, RagOrchestrator
 from app.retriever import RetrievedChunk
 
 _CORRECT = "correct"
@@ -180,15 +181,29 @@ class CorrectiveRagOrchestrator(RagOrchestrator):
         self.correct_ratio = correct_ratio
         self.max_chunk_chars = max_chunk_chars
 
-    def ask(self, question: str) -> RagResult:
-        """Retrieve -> evaluate -> correct (if needed) -> refine -> generate.
+    def prepare(self, question: str) -> RagContext:
+        """Retrieve -> evaluate -> correct (if needed) -> refine -> build prompt.
 
         The corrective round is bounded: at most one query rewrite and one extra
         retrieval. Every failure mode degrades to plain RAG on the original set.
+        Inherited ask() turns this context into an answer.
         """
+        trace.emit(trace.RETRIEVE, "start", "Retrieving candidate chunks", top_k=self.top_k)
         chunks = self.retriever.retrieve(question, top_k=self.top_k)
+        trace.emit(
+            trace.RETRIEVE, "done", f"Retrieved {len(chunks)} chunk(s)", count=len(chunks)
+        )
+
+        trace.emit(trace.EVALUATE, "start", "Grading retrieval quality")
         verdicts = self._evaluate(question, chunks)
         verdict = aggregate_verdict(verdicts, len(chunks), self.correct_ratio)
+        trace.emit(
+            trace.EVALUATE,
+            "done" if verdict else "skipped",
+            f"Verdict: {verdict}" if verdict else "Evaluator gave no usable verdict",
+            verdict=verdict,
+            graded=len(verdicts),
+        )
 
         rewritten_query: str | None = None
         corrective_rounds = 0
@@ -247,14 +262,20 @@ class CorrectiveRagOrchestrator(RagOrchestrator):
                 final_chunks = refine_chunks(chunks, verdicts)
 
         final_chunks = final_chunks[: self.top_k]
-        system_prompt, user_prompt = build_prompt(question, final_chunks)
-        answer = self.generator.generate(user_prompt, system_prompt=system_prompt)
+        trace.emit(
+            trace.REFINE,
+            "done",
+            refinement or f"Context settled on {len(final_chunks)} chunk(s)",
+            count=len(final_chunks),
+            refinement=refinement,
+        )
 
-        return RagResult(
+        system_prompt, user_prompt = build_prompt(question, final_chunks)
+        return RagContext(
             question=question,
-            answer=answer,
-            retrieved_chunks=final_chunks,
-            prompt=user_prompt,
+            chunks=final_chunks,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
             verdict=verdict,
             rewritten_query=rewritten_query,
             corrective_rounds=corrective_rounds,
@@ -296,6 +317,7 @@ class CorrectiveRagOrchestrator(RagOrchestrator):
         None when the LLM fails, refuses, or merely echoes the original query —
         a same-query round would re-run the full retrieval for nothing.
         """
+        trace.emit(trace.REWRITE, "start", "Rewriting the query for a corrective round")
         try:
             response = self.generator.generate(
                 f"Question: {query}\n\nReturn only the rewritten search query now.",
@@ -305,15 +327,19 @@ class CorrectiveRagOrchestrator(RagOrchestrator):
             )
         except Exception as e:
             print(f"[crag] query rewrite failed ({type(e).__name__}: {e}); using original query")
+            trace.emit(trace.REWRITE, "error", f"Rewrite failed ({type(e).__name__}); keeping original query")
             return None
         rewritten = response.strip().strip('"').strip("'").strip()
         # The model occasionally appends stray control bytes (e.g. NUL) — drop
         # anything below printable ASCII so the query stays clean for search.
         rewritten = "".join(ch for ch in rewritten if ord(ch) >= 32 or ch in "\n\t")
         if not rewritten or rewritten.lower() == query.lower():
+            trace.emit(trace.REWRITE, "skipped", "Rewrite matched the original query")
             return None
         if rewritten.lower().startswith(("none", "n/a", "i cannot", "i can't")):
+            trace.emit(trace.REWRITE, "skipped", "Model declined to rewrite")
             return None
+        trace.emit(trace.REWRITE, "done", f"Rewrote as: {rewritten}", query=rewritten)
         return rewritten
 
     def _corrective_retrieve(self, query: str) -> list[RetrievedChunk] | None:
@@ -323,8 +349,21 @@ class CorrectiveRagOrchestrator(RagOrchestrator):
         round must not kill the query, so it falls back to the original set
         (handled by the caller).
         """
+        trace.emit(trace.CORRECTIVE_RETRIEVE, "start", "Re-retrieving with the corrected query")
         try:
-            return self.retriever.retrieve(query, top_k=self.top_k)
+            chunks = self.retriever.retrieve(query, top_k=self.top_k)
         except Exception as e:
             print(f"[crag] corrective retrieval failed ({type(e).__name__}: {e}); falling back")
+            trace.emit(
+                trace.CORRECTIVE_RETRIEVE,
+                "error",
+                f"Corrective retrieval failed ({type(e).__name__}); falling back",
+            )
             return None
+        trace.emit(
+            trace.CORRECTIVE_RETRIEVE,
+            "done",
+            f"Corrective round returned {len(chunks)} chunk(s)",
+            count=len(chunks),
+        )
+        return chunks

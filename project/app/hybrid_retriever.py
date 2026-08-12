@@ -18,6 +18,7 @@ replacement — RagOrchestrator, run_evals.py and main.py need no other changes.
 
 from concurrent.futures import ThreadPoolExecutor
 
+from app import trace
 from app.fusion import reciprocal_rank_fusion
 from app.retriever import RetrievedChunk
 
@@ -52,6 +53,21 @@ class HybridRetriever:
         fused = reciprocal_rank_fusion(
             [semantic_results, bm25_results],
             rrf_k=self.rrf_k,
+        )
+
+        # Its own stage, not a RETRIEVE update: RETRIEVE is owned by the
+        # orchestrator, which opens it before this runs and closes it after.
+        # Reporting fusion under that name would overwrite its status, and a
+        # corrective round (which re-enters here without the orchestrator
+        # re-closing RETRIEVE) would leave the stage reading "running" forever.
+        trace.emit(
+            trace.FUSE,
+            "done",
+            f"{len(semantic_results)} dense + {len(bm25_results)} BM25 "
+            f"→ {len(fused)} fused, {min(len(fused), top_k)} kept",
+            dense=len(semantic_results),
+            sparse=len(bm25_results),
+            fused=len(fused),
         )
 
         # Step 4: hand the LLM only the fused top_k.
