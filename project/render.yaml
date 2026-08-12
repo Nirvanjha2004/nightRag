@@ -22,7 +22,7 @@ services:
   - type: web
     name: nightrag
     runtime: docker
-    repo: https://github.com/YOUR_USERNAME/nightRag   # <- your repo URL
+    repo: https://github.com/nirvanjha2004/nightRag   # <- your repo URL
     plan: free
     healthCheckPath: /api/health
     dockerContext: .
