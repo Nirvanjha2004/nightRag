@@ -725,6 +725,53 @@ def _check_chunker_dedup() -> None:
     print("OK: repeated names (overloads/impls) get distinct, stable ids")
 
 
+def _check_ingestion() -> None:
+    """The real ingest() happy path: find -> chunk -> embed -> store.
+
+    Regression for the NameError (the loop and summary used the old
+    Python-only name 'py_files' after the multi-language rename to 'files')
+    that crashed every successful ingestion. Runs the actual orchestration
+    against an in-memory Qdrant + deterministic fake embedder, exactly like
+    the other offline checks.
+    """
+    import tempfile
+    from pathlib import Path
+
+    from qdrant_client import QdrantClient
+
+    from app import ingestion
+    from app.vector_db import VectorDB
+
+    with tempfile.TemporaryDirectory() as tmp:
+        (Path(tmp) / "mod.py").write_text(
+            "def helper():\n    return 42\n\nclass Widget:\n    def spin(self):\n        pass\n",
+            encoding="utf-8",
+        )
+        (Path(tmp) / "cli.py").write_text(
+            "def main():\n    print('hi')\n", encoding="utf-8"
+        )
+
+        db = VectorDB(client=QdrantClient(":memory:"))
+        summary = ingestion.ingest(
+            repo_path=tmp,
+            jina_api_key="test-key",
+            collection_name="code_chunks",
+            vector_db=db,
+            embedder=FakeEmbedder(),
+            on_progress=lambda step, message, **detail: None,
+        )
+
+        assert summary["files"] == 2, f"expected 2 files walked, got {summary}"
+        assert summary["chunks"] > 0, f"no chunks extracted: {summary}"
+        assert summary["stored"] == summary["chunks"], f"store mismatch: {summary}"
+        assert summary["count"] == summary["chunks"], f"count mismatch: {summary}"
+        assert summary["vector_size"] == 8, f"expected 8-dim fake vectors: {summary}"
+        assert db.count("code_chunks") == summary["chunks"], "Qdrant must hold every chunk"
+        assert db.get_all_points("code_chunks"), "no points retrievable after ingest"
+
+    print(f"OK: ingest() runs end to end ({summary['files']} files -> {summary['chunks']} chunks)")
+
+
 def _check_chunker_docs() -> None:
     """Leading docs fold only when adjacent: a Rust `#[cfg(test)]` on a mod
     lands in the mod's first member chunk, but a comment separated by blank
@@ -777,3 +824,4 @@ if __name__ == "__main__":
     _check_multilang_chunker()
     _check_chunker_dedup()
     _check_chunker_docs()
+    _check_ingestion()

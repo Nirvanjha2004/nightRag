@@ -24,16 +24,35 @@ You need Python 3.11+, Node 20+, and two free API keys:
 [Jina](https://jina.ai/embeddings/) (embeddings) and
 [Groq](https://console.groq.com/keys) (generation).
 
+### With uv (recommended)
+
+[uv](https://docs.astral.sh/uv/) creates the virtualenv and pins every
+dependency in one step:
+
+```bash
+uv sync                          # create .venv and install dependencies
+cp .env.example .env             # paste your two keys in
+
+cd web && npm install && npm run build && cd ..
+uv run python run_server.py
+```
+
+`uv run` executes inside the project's `.venv`, so every command below can be
+run the same way — e.g. `uv run python main.py "…"` or, via the installed
+console scripts, `uv run nightrag "…"` and `uv run nightrag-server`.
+
+### With pip instead
+
 ```bash
 pip install -r requirements.txt
-cp .env.example .env          # paste your two keys in
+cp .env.example .env             # paste your two keys in
 
 cd web && npm install && npm run build && cd ..
 python run_server.py
 ```
 
-Open <http://127.0.0.1:8000>, go to **Corpus**, point it at a folder or a Git
-URL, and start asking once it finishes indexing.
+Either way, open <http://127.0.0.1:8000>, go to **Corpus**, point it at a
+folder or a Git URL, and start asking once it finishes indexing.
 
 ### With Docker instead
 
@@ -85,13 +104,15 @@ the code it came from, and tune the pipeline live from **Settings**.
 ### CLI
 
 ```bash
-python -m app.ingestion /path/to/repo --local   # index a codebase
-python main.py "Where is the overdraft fee defined?"
-python main.py                                  # interactive REPL
+uv run python -m app.ingestion /path/to/repo --local   # index a codebase
+uv run python main.py "Where is the overdraft fee defined?"
+uv run python main.py                                  # interactive REPL
 ```
 
-Flags: `--top-k`, `--rrf-k`, `--candidate-k`, `--min-score`, `--model`,
-`--no-rerank`, `--no-crag`. Run `python main.py --help` for the full list.
+The same commands work as installed scripts: `uv run nightrag-ingest`,
+`uv run nightrag`. Flags: `--top-k`, `--rrf-k`, `--candidate-k`,
+`--min-score`, `--model`, `--no-rerank`, `--no-crag`. Run
+`uv run python main.py --help` for the full list.
 
 ### HTTP API
 
@@ -148,15 +169,15 @@ Two things to change before that:
 ## Development
 
 ```bash
-python run_server.py       # terminal 1 — API on :8000
-cd web && npm run dev      # terminal 2 — UI on :5173, proxies /api
+uv run python run_server.py  # terminal 1 — API on :8000
+cd web && npm run dev        # terminal 2 — UI on :5173, proxies /api
 ```
 
 Before committing:
 
 ```bash
-python test_pipeline.py                        # pipeline wiring — offline, no keys
-python test_server.py                          # HTTP + streaming — offline, no keys
+uv run python test_pipeline.py                 # pipeline wiring — offline, no keys
+uv run python test_server.py                   # HTTP + streaming — offline, no keys
 cd web && npm run typecheck && npm run build
 ```
 
@@ -174,10 +195,12 @@ rules the code follows.
 Retrieval quality is measured, not asserted:
 
 ```bash
-pip install -r requirements-eval.txt
-python run_evals.py        # benchmarks/evals.jsonl → eval_results.jsonl
-python run_ragas.py        # RAGAS scores (needs a local Ollama judge)
+uv sync --extra eval        # adds the RAGAS + judge dependencies
+uv run python run_evals.py  # benchmarks/evals.jsonl → eval_results.jsonl
+uv run python run_ragas.py  # RAGAS scores (needs a local Ollama judge)
 ```
+
+(`pip install -r requirements-eval.txt` works too if you are not on uv.)
 
 `journey/` records what each run measured and what changed as a result —
 baseline, RAGAS setup, hybrid retrieval, the reranker. `issues/` records the

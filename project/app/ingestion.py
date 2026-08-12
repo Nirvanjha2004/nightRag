@@ -76,6 +76,7 @@ def ingest(
     local_path: str | None = None,
     langs: set[str] | None = None,
     vector_db: VectorDB | None = None,
+    embedder: Embedder | None = None,
     on_progress=None,
 ) -> dict:
     """Chunk every supported source file under repo_path, embed the chunks,
@@ -85,6 +86,9 @@ def ingest(
     server shares its one embedded-Qdrant client), a local embedded store
     (``local_path``), or a running Qdrant server (``qdrant_url``). Exactly one
     must be provided.
+
+    ``embedder`` is injectable the same way (tests pass a deterministic fake);
+    when omitted a real Jina embedder is built from ``jina_api_key``.
 
     ``on_progress(step, message, **detail)`` is called at each phase boundary so
     a UI can follow a long run; it defaults to printing, which is what the CLI
@@ -104,7 +108,8 @@ def ingest(
                 "Provide a VectorDB, --local (embedded Qdrant), or --qdrant-url (server)."
             )
 
-    embedder = Embedder(api_key=jina_api_key)
+    if embedder is None:
+        embedder = Embedder(api_key=jina_api_key)
 
     # 1. Find all supported source files (respecting --langs and skip dirs)
     files = find_source_files(repo_path, extensions=langs)
@@ -119,7 +124,7 @@ def ingest(
     # 2. Chunk every file (language chosen by file extension)
     all_chunks = []
     skipped = []
-    for file_path in py_files:
+    for file_path in files:
         try:
             all_chunks.extend(chunk_file(str(file_path)))
         except Exception as e:
@@ -138,7 +143,7 @@ def ingest(
     if not all_chunks:
         report("done", "No chunks found — stopping before touching embedder/Qdrant.")
         return {
-            "files": len(py_files),
+            "files": len(files),
             "chunks": 0,
             "skipped": skipped,
             "vector_size": 0,
@@ -180,7 +185,7 @@ def ingest(
         report("done", "  WARNING: mismatch — investigate before trusting this collection.")
 
     return {
-        "files": len(py_files),
+        "files": len(files),
         "chunks": len(all_chunks),
         "skipped": skipped,
         "vector_size": vector_size,
