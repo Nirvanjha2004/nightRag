@@ -1,4 +1,4 @@
-# Render Blueprint - deploy NightRag in one click.
+# Render Blueprint - deploy NightRag on the FREE plan.
 #
 # Two ways to use this file:
 #   1. Dashboard: "New +" -> "Blueprint" -> pick your repo (it finds render.yaml).
@@ -8,24 +8,22 @@
 # The multi-stage Dockerfile already builds the React UI and runs the FastAPI
 # server, so the whole app is ONE web service - no separate static site.
 #
-# IMPORTANT - storage:
-#   Persistent disks need a PAID instance (Starter $7/mo or higher). If you
-#   stay on the Free plan, remove the `disk:` block and set NIGHTRAG_QDRANT_URL
-#   (e.g. Qdrant Cloud free tier - the app now also reads QDRANT_API_KEY) -
-#   otherwise the embedded index is wiped on every redeploy and the service
-#   spins down when idle.
+# Why a hosted Qdrant instead of the built-in store?
+#   Free Render services have an EPHEMERAL filesystem: the embedded qdrant_data
+#   directory is wiped on every redeploy (and the instance spins down when
+#   idle). Qdrant Cloud's free tier (1 GB) keeps the vector index persistent,
+#   so your ingested code survives redeploys.
 #
-# IMPORTANT - secrets:
-#   JINA_API_KEY and GROQ_API_KEY are `sync: false`, so the first deploy pauses
-#   until you paste them into the dashboard (Environment tab). They are never
-#   stored in this file.
+# IMPORTANT - secrets (all `sync: false`), paste them in the dashboard:
+#   JINA_API_KEY, GROQ_API_KEY, NIGHTRAG_QDRANT_API_KEY
+#   (NIGHTRAG_QDRANT_URL has a placeholder - replace it with your cluster URL.)
 
 services:
   - type: web
     name: nightrag
     runtime: docker
     repo: https://github.com/YOUR_USERNAME/nightRag   # <- your repo URL
-    plan: starter
+    plan: free
     healthCheckPath: /api/health
     dockerContext: .
 
@@ -34,6 +32,12 @@ services:
         value: 0.0.0.0
       # Render injects PORT (default ~10000); settings.py falls back to it when
       # NIGHTRAG_PORT is unset, so the container listens where Render expects.
+      - key: NIGHTRAG_QDRANT_URL
+        value: https://b3f5edcf-47bf-4567-a53e-769fc14fc2e4.eu-central-1-0.aws.cloud.qdrant.io
+      # API key stays out of git: paste it in the Render Environment tab
+      # (Qdrant Cloud dashboard -> Security -> API keys).
+      - key: NIGHTRAG_QDRANT_API_KEY
+        sync: false
       - key: JINA_API_KEY
         sync: false
       - key: GROQ_API_KEY
@@ -46,26 +50,24 @@ services:
       # - key: NIGHTRAG_CORS_ORIGINS
       #   value: https://your-frontend.example.com
 
-    disk:
-      name: qdrant-data
-      mountPath: /data
-      sizeGB: 1
-
-  # --- Free-plan alternative: hosted Qdrant instead of the disk ------------
+  # --- Paid alternative: persistent disk instead of hosted Qdrant ----------
+  # Persistent disks need a PAID instance (Starter $7/mo or higher). This keeps
+  # the embedded store on a disk mounted at /data; uncomment and remove the
+  # Qdrant Cloud vars above if you upgrade.
   # - type: web
   #   name: nightrag
   #   runtime: docker
   #   repo: https://github.com/YOUR_USERNAME/nightRag
-  #   plan: free
+  #   plan: starter
   #   healthCheckPath: /api/health
   #   envVars:
   #     - key: NIGHTRAG_HOST
   #       value: 0.0.0.0
-  #     - key: NIGHTRAG_QDRANT_URL
-  #       value: https://YOUR-CLUSTER.cloud.qdrant.io
-  #     - key: NIGHTRAG_QDRANT_API_KEY
-  #       value: your-qdrant-cloud-key
   #     - key: JINA_API_KEY
   #       sync: false
   #     - key: GROQ_API_KEY
   #       sync: false
+  #   disk:
+  #     name: qdrant-data
+  #     mountPath: /data
+  #     sizeGB: 1
