@@ -22,7 +22,15 @@ export function AskView() {
   const bottom = useRef<HTMLDivElement>(null);
 
   const collections = health?.collections ?? [];
-  const collection = settings.collection ?? health?.default_collection ?? "";
+  const preferred = settings.collection ?? health?.default_collection ?? "";
+  // Never ask against a collection that does not exist: a stale setting or a
+  // renamed default would otherwise fail every question with "has not been
+  // ingested yet". Fall back to the first collection that actually exists
+  // (or nothing, which blocks the composer until one is ingested).
+  const collection =
+    preferred === "" || collections.some((item) => item.name === preferred)
+      ? preferred
+      : (collections[0]?.name ?? "");
   const missingKeys = health?.missing_keys ?? [];
   const blocked = loading || missingKeys.length > 0 || collections.length === 0;
 
