@@ -1,0 +1,19 @@
+.git
+.venv
+venv
+__pycache__
+*.pyc
+
+# Never bake secrets or a machine-local index into an image.
+.env
+qdrant_data/
+eval_results.jsonl
+ragas_results*
+
+web/node_modules
+web/dist
+
+# Documentation and benchmarks are not needed at runtime.
+issues/
+journey/
+benchmarks/
