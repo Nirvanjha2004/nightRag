@@ -1,15 +1,42 @@
 [project]
-name = "project"
-version = "0.1.0"
-description = "Add your description here"
+name = "nightrag"
+version = "1.0.0"
+description = "Corrective, hybrid-retrieval RAG over Python codebases — CLI, HTTP API and web UI."
 readme = "README.md"
-requires-python = ">=3.14"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+keywords = ["rag", "retrieval", "code-search", "qdrant", "bm25", "corrective-rag"]
+
 dependencies = [
     "tree-sitter>=0.26.0",
     "tree-sitter-python>=0.25.0",
     "requests>=2.32.0",
     "qdrant-client>=1.10.0",
     "groq>=1.6.0",
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "python-multipart>=0.0.17",
+]
+
+[project.optional-dependencies]
+# Benchmarking only: RAGAS scoring against benchmarks/evals.jsonl.
+eval = [
     "ragas>=0.4.3",
+    "openai>=1.50.0",
     "langchain-ollama>=1.1.0",
 ]
+
+[project.scripts]
+nightrag = "main:main"
+nightrag-server = "run_server:main"
+nightrag-ingest = "app.ingestion:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+py-modules = ["main", "run_server", "run_evals", "run_ragas"]
+
+[tool.setuptools.packages.find]
+include = ["app*", "server*"]

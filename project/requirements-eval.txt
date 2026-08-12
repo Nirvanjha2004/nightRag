@@ -1,0 +1,7 @@
+# Benchmarking extras — only needed to run run_evals.py + run_ragas.py.
+# See benchmarks/ for the golden set and journey/ for what each run measured.
+-r requirements.txt
+
+ragas>=0.4.3
+openai>=1.50.0
+langchain-ollama>=1.1.0

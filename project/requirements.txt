@@ -1,6 +1,16 @@
-tree-sitter
-tree-sitter-python
-requests
-qdrant-client
-groq
-ragas
+# Runtime dependencies for the pipeline, the CLI and the HTTP server.
+# Evaluation extras live in requirements-eval.txt.
+
+# Chunking — tree-sitter parses Python into functions/classes/methods.
+tree-sitter>=0.26.0
+tree-sitter-python>=0.25.0
+
+# Retrieval + generation
+requests>=2.32.0
+qdrant-client>=1.10.0
+groq>=1.6.0
+
+# HTTP API and the static host for the built web UI.
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.17
