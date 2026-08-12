@@ -15,9 +15,9 @@ const SOURCE_ICON = {
 
 const STATUS = {
   queued: { tone: "neutral", icon: Loader2, label: "Queued" },
-  running: { tone: "accent", icon: Loader2, label: "Running" },
-  succeeded: { tone: "positive", icon: CheckCircle2, label: "Done" },
-  failed: { tone: "critical", icon: XCircle, label: "Failed" },
+  running: { tone: "lamp", icon: Loader2, label: "Running" },
+  succeeded: { tone: "keep", icon: CheckCircle2, label: "Done" },
+  failed: { tone: "cut", icon: XCircle, label: "Failed" },
 } as const;
 
 export function JobPanel({ jobs, loading }: { jobs: Job[]; loading: boolean }) {
@@ -76,20 +76,20 @@ function JobRow({ job }: { job: Job }) {
   }, [job.logs.length, active]);
 
   return (
-    <div className="rounded-control border border-line bg-surface-raised">
+    <div className="rounded-control border border-rule bg-panel">
       <div className="flex items-start gap-2.5 p-3">
         <span
           aria-hidden
-          className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-control border border-line bg-surface text-fg-subtle"
+          className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-control border border-rule bg-panel text-moon-3"
         >
           <SourceIcon className="size-3.5" />
         </span>
 
         <div className="min-w-0 flex-1">
-          <p className="truncate font-mono text-xs text-fg" title={job.target}>
+          <p className="truncate font-mono text-xs text-moon" title={job.target}>
             {job.target}
           </p>
-          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.6875rem] text-fg-subtle">
+          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.6875rem] text-moon-3">
             <span>→ {job.collection}</span>
             {formatTime(job.created_at) && <span>{formatTime(job.created_at)}</span>}
             {job.summary?.chunks !== undefined && (
@@ -111,7 +111,7 @@ function JobRow({ job }: { job: Job }) {
           ref={log}
           // A log is a running commentary, not a result — announcing every line
           // would flood a screen reader, so it is deliberately not a live region.
-          className="max-h-40 overflow-y-auto border-t border-line px-3 py-2 font-mono text-[0.6875rem] leading-relaxed text-fg-muted"
+          className="max-h-40 overflow-y-auto border-t border-rule px-3 py-2 font-mono text-[0.6875rem] leading-relaxed text-moon-2"
         >
           {job.logs.map((line, index) => (
             <p key={index} className="whitespace-pre-wrap break-words">
@@ -124,7 +124,7 @@ function JobRow({ job }: { job: Job }) {
       {job.error && (
         <p
           role="alert"
-          className="border-t border-critical/30 bg-critical-soft px-3 py-2 text-[0.6875rem] leading-relaxed text-fg"
+          className="border-t border-cut/30 bg-cut-soft px-3 py-2 text-[0.6875rem] leading-relaxed text-moon"
         >
           {job.error}
         </p>

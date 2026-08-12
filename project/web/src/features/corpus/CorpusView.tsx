@@ -40,7 +40,7 @@ export function CorpusView() {
       setActive(running);
     } catch {
       // A failed poll is not worth a toast — the next tick will retry, and the
-      // server-unreachable case already surfaces on the health banner.
+      // server-unreachable case already panels on the health banner.
     } finally {
       setJobsLoading(false);
     }
@@ -72,12 +72,18 @@ export function CorpusView() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <header className="border-b border-line px-4 py-3 sm:px-6">
-        <h1 className="text-sm font-semibold text-fg">Corpus</h1>
-        <p className="mt-0.5 text-xs text-fg-muted">
-          What NightRag has indexed, and how to add more. Storage: {health?.storage ?? "…"}
+      <div className="mx-auto w-full max-w-5xl px-4 pt-8 sm:px-6">
+        {/* No full-bleed page header: the top bar already names where you are
+            and how much is indexed. What belongs here is the one fact it does
+            not carry — where the index physically lives. */}
+        <p className="eyebrow">Corpus</p>
+        <h1 className="display mt-2 text-[1.5rem] font-bold leading-tight tracking-[-0.015em] text-moon">
+          What NightRag can answer from
+        </h1>
+        <p className="mt-1.5 text-[0.8125rem] text-moon-2">
+          Stored in <span className="font-mono text-moon">{health?.storage ?? "…"}</span>
         </p>
-      </header>
+      </div>
 
       <div className="mx-auto grid w-full max-w-5xl gap-4 px-4 py-6 sm:px-6 lg:grid-cols-2">
         <div className="space-y-4">
@@ -119,26 +125,28 @@ export function CorpusView() {
                   {collections.map((collection) => (
                     <li
                       key={collection.name}
-                      className="flex items-center gap-3 rounded-control border border-line bg-surface-raised p-3"
+                      className="flex items-center gap-3 rounded-control border border-rule bg-panel p-3"
                     >
+                      {/* Neutral: the lamp means live or selected, and every
+                          collection wearing it would spend the accent on decoration. */}
                       <span
                         aria-hidden
-                        className="flex size-7 shrink-0 items-center justify-center rounded-control border border-accent-line bg-accent-soft text-accent"
+                        className="flex size-7 shrink-0 items-center justify-center rounded-control border border-rule bg-panel text-moon-3"
                       >
                         <Database className="size-3.5" />
                       </span>
 
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-mono text-[0.8125rem] text-fg">
+                        <p className="truncate font-mono text-[0.8125rem] text-moon">
                           {collection.name}
                         </p>
-                        <p className="mt-0.5 text-[0.6875rem] text-fg-subtle">
+                        <p className="mt-0.5 text-[0.6875rem] text-moon-3">
                           {formatCount(collection.points)} chunks
                           {collection.vector_size ? ` · ${collection.vector_size}-dim vectors` : ""}
                         </p>
                       </div>
 
-                      {collection.indexed && <Badge tone="positive">BM25 warm</Badge>}
+                      {collection.indexed && <Badge tone="keep">BM25 warm</Badge>}
 
                       <Button
                         size="sm"
@@ -147,7 +155,7 @@ export function CorpusView() {
                         loading={deleting === collection.name}
                         onClick={() => void remove(collection.name)}
                         aria-label={`Delete collection ${collection.name}`}
-                        className="hover:text-critical"
+                        className="hover:text-cut"
                       >
                         <Trash2 aria-hidden className="size-4" />
                       </Button>

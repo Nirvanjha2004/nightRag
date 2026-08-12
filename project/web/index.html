@@ -1,36 +1,38 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="night">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NightRag</title>
     <meta
       name="description"
-      content="Ask questions about a Python codebase — hybrid retrieval, LLM reranking and corrective RAG, with the whole pipeline visible."
+      content="Ask a Python codebase a question and watch retrieval cull its way to an answer — hybrid search, LLM reranking and corrective RAG, all on the record."
     />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <meta name="theme-color" content="#08090c" />
+    <meta name="theme-color" content="#080c18" />
 
-    <!-- Inter + JetBrains Mono, with a full system fallback stack in index.css
-         so the app is still correctly typeset offline. -->
+    <!-- Archivo carries a width axis; the display face is set expanded (wdth 112)
+         so stage names and counts read like engraved panel labels. Instrument Sans
+         sets prose, JetBrains Mono sets code. Full fallback stacks in index.css
+         keep the page correctly typeset offline. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..125,400..800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
 
     <script>
-      // Applied before first paint so a light-theme user never sees a dark flash.
+      // Applied before first paint so a day-theme reader never sees a night flash.
       (function () {
         try {
           var stored = localStorage.getItem("nightrag.theme");
           var theme =
             stored ||
-            (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
+            (window.matchMedia("(prefers-color-scheme: light)").matches ? "day" : "night");
           document.documentElement.setAttribute("data-theme", theme);
         } catch (e) {
-          /* private mode — the dark default in the markup already applies */
+          /* private mode — the night default in the markup already applies */
         }
       })();
     </script>

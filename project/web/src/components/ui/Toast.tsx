@@ -28,15 +28,15 @@ interface ToastApi {
 const ToastContext = createContext<ToastApi | null>(null);
 
 const TONES: Record<ToastTone, { icon: typeof Info; className: string; label: string }> = {
-  info: { icon: Info, className: "border-accent-line bg-accent-soft text-accent", label: "Note" },
+  info: { icon: Info, className: "border-lamp-line bg-lamp-soft text-lamp", label: "Note" },
   success: {
     icon: CheckCircle2,
-    className: "border-positive/30 bg-positive-soft text-positive",
+    className: "border-keep/30 bg-keep-soft text-keep",
     label: "Success",
   },
   error: {
     icon: AlertTriangle,
-    className: "border-critical/30 bg-critical-soft text-critical",
+    className: "border-cut/30 bg-cut-soft text-cut",
     label: "Error",
   },
 };
@@ -91,13 +91,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 exit={{ opacity: 0, y: 8, scale: 0.97 }}
                 transition={{ duration: 0.18, ease: "easeOut" }}
                 className={cn(
-                  "pointer-events-auto flex items-start gap-2.5 rounded-card border p-3 backdrop-blur",
+                  "pointer-events-auto flex items-start gap-2.5 rounded-panel border p-3 backdrop-blur",
                   "shadow-[0_8px_24px_rgba(0,0,0,0.28)]",
                   className,
                 )}
               >
                 <Icon aria-hidden className="mt-0.5 size-4 shrink-0" />
-                <p className="flex-1 text-[0.8125rem] leading-relaxed text-fg">
+                <p className="flex-1 text-[0.8125rem] leading-relaxed text-moon">
                   <span className="sr-only">{label}: </span>
                   {toast.message}
                 </p>
@@ -105,7 +105,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   type="button"
                   onClick={() => dismiss(toast.id)}
                   aria-label="Dismiss notification"
-                  className="-m-1 rounded-control p-1 text-fg-subtle transition-colors hover:text-fg"
+                  className="-m-1 rounded-control p-1 text-moon-3 transition-colors hover:text-moon"
                 >
                   <X aria-hidden className="size-3.5" />
                 </button>

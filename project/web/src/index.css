@@ -1,127 +1,131 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   NightRag design tokens.
+   NightRag — lamplight on a blue night.
 
-   One accent (azure), three semantic hues (positive / caution / critical), and
-   a six-step neutral ramp. Nothing in the app hard-codes a colour — components
-   only ever reference these names, so retheming is a change in this one block,
-   and the light theme is the same names with different values.
+   The ground is deep indigo, not black: this product is called Night, and a
+   night sky is blue. Against it sits one warm accent — lamp amber — which is
+   the only colour in the interface that means "this is happening now". Keep
+   (mint) and cut (rose) appear on retrieval verdicts and nowhere else.
 
-   Dark is the default; `data-theme="light"` on <html> flips it.
+   Day is the same idea inverted: warm paper under daylight, same lamp.
+
+   Every value is defined once here. Components reference names, never hexes.
 --------------------------------------------------------------------------- */
 
 @theme {
-  --font-sans: "Inter var", "Inter", ui-sans-serif, system-ui, -apple-system,
+  /* Display carries a width axis — see .display, set expanded. */
+  --font-display: "Archivo", "Archivo Expanded", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, "Cascadia Mono",
     Menlo, Consolas, monospace;
 
-  --radius-control: 0.5rem;
-  --radius-card: 0.875rem;
+  --radius-control: 0.375rem;
+  --radius-panel: 0.75rem;
   --radius-pill: 999px;
 
-  /* Neutrals — surfaces from deepest to raised */
-  --color-canvas: #08090c;
-  --color-surface: #0e1016;
-  --color-surface-raised: #14171f;
-  --color-surface-hover: #1a1e28;
-  --color-line: #222736;
-  --color-line-strong: #303747;
+  /* Night ground */
+  --color-ink: #080c18;
+  --color-panel: #0e1428;
+  --color-panel-2: #141c36;
+  --color-rule: #202b4c;
+  --color-rule-strong: #2e3c66;
 
-  /* Foreground */
-  --color-fg: #e8ebf2;
-  --color-fg-muted: #9ba4b5;
-  --color-fg-subtle: #737d90;
-  --color-fg-inverse: #0a0d14;
+  /* Moonlight — the text ramp, kept in the blue family so it sits in the sky */
+  --color-moon: #e9eeff;
+  --color-moon-2: #9aa8ce;
+  --color-moon-3: #7b89b5;
 
-  /* Accent */
-  --color-accent: #5b9dff;
-  --color-accent-hover: #7ab0ff;
-  --color-accent-soft: #16233c;
-  --color-accent-line: #2b4674;
+  /* Lamp — the single accent. Live, focused, selected. */
+  --color-lamp: #ffb454;
+  --color-lamp-2: #ffc97a;
+  --color-lamp-soft: #2a1e0d;
+  --color-lamp-line: #5c421c;
+  --color-on-lamp: #1a1206;
 
-  /* Semantics — always paired with an icon or label, never colour alone */
-  --color-positive: #4ade80;
-  --color-positive-soft: #10241a;
-  --color-caution: #fbbf24;
-  --color-caution-soft: #2a2010;
-  --color-critical: #fb7185;
-  --color-critical-soft: #2c1119;
+  /* Retrieval verdicts. Always paired with an icon or a word. */
+  --color-keep: #5fe3b3;
+  --color-keep-soft: #0c2a22;
+  --color-cut: #ff6b81;
+  --color-cut-soft: #2c1119;
 
-  /* Syntax highlighting — a muted subset that sits inside the neutral ramp */
-  --color-code-keyword: #93b8ff;
-  --color-code-string: #86d99f;
-  --color-code-number: #f0b775;
-  --color-code-comment: #6b7484;
-  --color-code-function: #c4a7ff;
+  /* Code, mapped into the same sky so nothing new is introduced */
+  --color-code-keyword: #9db4ff;
+  --color-code-string: #7fdcb4;
+  --color-code-number: #ffc07a;
+  --color-code-comment: #6b79a3;
+  --color-code-function: #ffb454;
+
+  /* The lamp's throw. Used only on the running stage. */
+  --glow-lamp: 0 0 0 1px var(--color-lamp-line), 0 0 28px -6px rgba(255, 180, 84, 0.45);
+  --shadow-panel: 0 1px 0 0 rgba(255, 255, 255, 0.03) inset, 0 10px 30px -18px rgba(0, 0, 0, 0.9);
 }
 
-[data-theme="light"] {
-  --color-canvas: #f6f7f9;
-  --color-surface: #ffffff;
-  --color-surface-raised: #ffffff;
-  --color-surface-hover: #f0f2f6;
-  --color-line: #e2e5ec;
-  --color-line-strong: #cdd3de;
+[data-theme="day"] {
+  --color-ink: #f7f5f0;
+  --color-panel: #ffffff;
+  --color-panel-2: #f2efe8;
+  --color-rule: #e3ded2;
+  --color-rule-strong: #cbc4b5;
 
-  --color-fg: #12161f;
-  --color-fg-muted: #545e70;
-  --color-fg-subtle: #6d778a;
-  --color-fg-inverse: #ffffff;
+  --color-moon: #171a24;
+  --color-moon-2: #545b70;
+  --color-moon-3: #767e96;
 
-  --color-accent: #2563eb;
-  --color-accent-hover: #1d4ed8;
-  --color-accent-soft: #eaf1ff;
-  --color-accent-line: #bcd2ff;
+  --color-lamp: #b45309;
+  --color-lamp-2: #92400e;
+  --color-lamp-soft: #fdf3e3;
+  --color-lamp-line: #e6cfa8;
+  --color-on-lamp: #ffffff;
 
-  --color-positive: #15803d;
-  --color-positive-soft: #e7f6ec;
-  --color-caution: #b45309;
-  --color-caution-soft: #fdf3e3;
-  --color-critical: #be123c;
-  --color-critical-soft: #fdeaee;
+  --color-keep: #0f7a54;
+  --color-keep-soft: #e6f6ef;
+  --color-cut: #be123c;
+  --color-cut-soft: #fdeaee;
 
   --color-code-keyword: #1d4ed8;
   --color-code-string: #0f7a4a;
   --color-code-number: #a4530b;
-  --color-code-comment: #6d778a;
-  --color-code-function: #6d28d9;
+  --color-code-comment: #767e96;
+  --color-code-function: #9a3412;
+
+  --glow-lamp: 0 0 0 1px var(--color-lamp-line), 0 6px 20px -10px rgba(180, 83, 9, 0.4);
+  --shadow-panel: 0 1px 2px rgba(23, 26, 36, 0.05), 0 8px 24px -20px rgba(23, 26, 36, 0.5);
 }
 
 @layer base {
   * {
-    border-color: var(--color-line);
+    border-color: var(--color-rule);
   }
 
   html {
     color-scheme: dark;
-    background-color: var(--color-canvas);
+    background-color: var(--color-ink);
   }
 
-  [data-theme="light"] {
+  [data-theme="day"] {
     color-scheme: light;
   }
 
   body {
-    background-color: var(--color-canvas);
-    color: var(--color-fg);
+    background-color: var(--color-ink);
+    color: var(--color-moon);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
 
-  /* One focus treatment for the whole app: a 2px accent ring offset from the
-     control, so it reads on every surface without shifting layout. */
+  /* One focus treatment everywhere: the lamp, offset, never removed. */
   :focus-visible {
-    outline: 2px solid var(--color-accent);
+    outline: 2px solid var(--color-lamp);
     outline-offset: 2px;
     border-radius: var(--radius-control);
   }
 
   ::selection {
-    background-color: var(--color-accent-line);
-    color: var(--color-fg);
+    background-color: var(--color-lamp);
+    color: var(--color-on-lamp);
   }
 
   ::-webkit-scrollbar {
@@ -132,45 +136,88 @@
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: var(--color-line-strong);
+    background: var(--color-rule-strong);
     border: 3px solid transparent;
     background-clip: content-box;
     border-radius: var(--radius-pill);
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-fg-subtle);
+    background: var(--color-moon-3);
     background-clip: content-box;
   }
 }
 
 @layer components {
-  /* Answer prose. Tailwind's typography plugin is deliberately not a
-     dependency — the answer only ever contains a known subset of markdown
-     (paragraphs, lists, code, tables), and styling it here keeps it on the
-     same tokens as the rest of the app. */
+  /* ---- Display type -----------------------------------------------------
+     Archivo set wide. Used for counts, stage names and headings — the
+     engraved-panel voice. Never for prose: at this width it is a label face. */
+  .display {
+    font-family: var(--font-display);
+    font-stretch: 112%;
+    font-variation-settings: "wdth" 112;
+    letter-spacing: -0.005em;
+  }
+
+  /* Small caps-ish section markers. Tracking does the work, not weight. */
+  .eyebrow {
+    font-family: var(--font-display);
+    font-stretch: 108%;
+    font-variation-settings: "wdth" 108;
+    font-size: 0.625rem;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-moon-3);
+  }
+
+  /* Counts and scores. Tabular so a shrinking number does not shift layout. */
+  .tally {
+    font-family: var(--font-display);
+    font-stretch: 118%;
+    font-variation-settings: "wdth" 118;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+
+  /* ---- The lamp ---------------------------------------------------------
+     Applied to whichever pipeline stage is running. It is the progress
+     indicator, which is why it is allowed to glow at all. */
+  .lit {
+    box-shadow: var(--glow-lamp);
+    border-color: var(--color-lamp-line);
+  }
+
+  /* ---- Answer prose -----------------------------------------------------
+     Tailwind's typography plugin is deliberately not a dependency: the answer
+     only ever contains a known subset of markdown, and styling it here keeps
+     it on the same tokens as everything else. */
   .prose-answer {
     font-size: 0.9375rem;
-    line-height: 1.7;
-    color: var(--color-fg);
+    line-height: 1.72;
+    color: var(--color-moon);
   }
   .prose-answer > * + * {
-    margin-top: 0.85em;
+    margin-top: 0.9em;
   }
   .prose-answer h1,
   .prose-answer h2,
   .prose-answer h3 {
+    font-family: var(--font-display);
+    font-stretch: 108%;
+    font-variation-settings: "wdth" 108;
     font-weight: 600;
-    line-height: 1.35;
-    margin-top: 1.4em;
+    line-height: 1.3;
+    margin-top: 1.5em;
+    letter-spacing: -0.01em;
   }
   .prose-answer h1 {
-    font-size: 1.15rem;
+    font-size: 1.1875rem;
   }
   .prose-answer h2 {
-    font-size: 1.05rem;
+    font-size: 1.0625rem;
   }
   .prose-answer h3 {
-    font-size: 0.975rem;
+    font-size: 0.9375rem;
   }
   .prose-answer ul,
   .prose-answer ol {
@@ -183,40 +230,42 @@
     list-style: decimal;
   }
   .prose-answer li + li {
-    margin-top: 0.3em;
+    margin-top: 0.35em;
   }
   .prose-answer li::marker {
-    color: var(--color-fg-subtle);
+    color: var(--color-lamp);
   }
   .prose-answer a {
-    color: var(--color-accent);
+    color: var(--color-lamp);
     text-underline-offset: 3px;
     text-decoration: underline;
   }
   .prose-answer strong {
     font-weight: 600;
+    color: var(--color-moon);
   }
   .prose-answer blockquote {
-    border-left: 2px solid var(--color-accent-line);
+    border-left: 2px solid var(--color-lamp-line);
     padding-left: 0.9em;
-    color: var(--color-fg-muted);
+    color: var(--color-moon-2);
   }
   .prose-answer :not(pre) > code {
     font-family: var(--font-mono);
-    font-size: 0.85em;
-    background: var(--color-surface-hover);
-    border: 1px solid var(--color-line);
-    border-radius: 0.375rem;
+    font-size: 0.8125em;
+    background: var(--color-panel-2);
+    border: 1px solid var(--color-rule);
+    border-radius: 0.25rem;
     padding: 0.1em 0.35em;
   }
   .prose-answer pre {
-    background: var(--color-canvas);
-    border: 1px solid var(--color-line);
+    background: var(--color-ink);
+    border: 1px solid var(--color-rule);
+    border-left: 2px solid var(--color-lamp-line);
     border-radius: var(--radius-control);
-    padding: 0.85rem 1rem;
+    padding: 0.9rem 1rem;
     overflow-x: auto;
     font-size: 0.8125rem;
-    line-height: 1.6;
+    line-height: 1.62;
   }
   .prose-answer pre code {
     font-family: var(--font-mono);
@@ -228,17 +277,19 @@
   }
   .prose-answer th,
   .prose-answer td {
-    border: 1px solid var(--color-line);
+    border: 1px solid var(--color-rule);
     padding: 0.45rem 0.65rem;
     text-align: left;
   }
   .prose-answer th {
-    background: var(--color-surface-hover);
+    background: var(--color-panel-2);
+    font-family: var(--font-display);
+    font-stretch: 108%;
     font-weight: 600;
   }
 
-  /* highlight.js output, mapped onto the token palette so code never
-     introduces colours the rest of the app does not use. */
+  /* highlight.js output, mapped onto the palette so code introduces no
+     colour the rest of the interface does not already use. */
   .hljs-keyword,
   .hljs-built_in,
   .hljs-literal,
@@ -266,14 +317,14 @@
   }
   .hljs-decorator,
   .hljs-meta {
-    color: var(--color-caution);
+    color: var(--color-lamp);
   }
 }
 
 @layer utilities {
-  /* A caret that blinks only while tokens are still arriving. It hangs off the
-     last rendered block rather than the container, so it sits at the end of the
-     sentence being written instead of on a line of its own. */
+  /* A caret that blinks only while tokens are still arriving. It hangs off
+     the last rendered block, so it sits at the end of the sentence being
+     written rather than on a line of its own. */
   .streaming-caret > :last-child::after {
     content: "";
     display: inline-block;
@@ -281,7 +332,7 @@
     height: 1.05em;
     margin-left: 0.15ch;
     vertical-align: text-bottom;
-    background: var(--color-accent);
+    background: var(--color-lamp);
     animation: caret-blink 1.1s steps(1) infinite;
   }
 
@@ -296,7 +347,21 @@
     }
   }
 
-  /* Respect the OS setting: motion is decoration here, never information. */
+  /* The lamp breathing while a stage runs. One subtle cycle, not a strobe. */
+  @keyframes lamp-breathe {
+    0%,
+    100% {
+      opacity: 0.72;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+  .breathing {
+    animation: lamp-breathe 2.4s ease-in-out infinite;
+  }
+
+  /* Motion is decoration here, never information. */
   @media (prefers-reduced-motion: reduce) {
     *,
     *::before,

@@ -4,10 +4,10 @@ import { Check, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const CONTROL =
-  "w-full rounded-control border border-line bg-surface-raised px-3 text-sm text-fg " +
-  "placeholder:text-fg-subtle transition-colors " +
-  "hover:border-line-strong focus:border-accent focus:outline-none " +
-  "disabled:cursor-not-allowed disabled:bg-surface disabled:text-fg-subtle";
+  "w-full rounded-control border border-rule bg-panel px-3 text-sm text-moon " +
+  "placeholder:text-moon-3 transition-colors " +
+  "hover:border-rule-strong focus:border-lamp focus:outline-none " +
+  "disabled:cursor-not-allowed disabled:bg-panel disabled:text-moon-3";
 
 interface FieldProps {
   label: string;
@@ -25,7 +25,7 @@ export function Field({ label, hint, error, children, className }: FieldProps) {
 
   return (
     <div className={cn("space-y-1.5", className)}>
-      <label htmlFor={id} className="block text-[0.8125rem] font-medium text-fg">
+      <label htmlFor={id} className="block text-[0.8125rem] font-medium text-moon">
         {label}
       </label>
       {children({ id, describedBy: hintId })}
@@ -33,7 +33,7 @@ export function Field({ label, hint, error, children, className }: FieldProps) {
         <p
           id={hintId}
           role={error ? "alert" : undefined}
-          className={cn("text-xs leading-relaxed", error ? "text-critical" : "text-fg-muted")}
+          className={cn("text-xs leading-relaxed", error ? "text-cut" : "text-moon-2")}
         >
           {error ?? hint}
         </p>
@@ -58,7 +58,7 @@ export function Select({ className, children, ...props }: SelectProps) {
       </select>
       <ChevronDown
         aria-hidden
-        className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-fg-subtle"
+        className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-moon-3"
       />
     </div>
   );
@@ -78,10 +78,10 @@ export function Toggle({ checked, onChange, label, description, disabled }: Togg
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0">
-        <label htmlFor={id} className="block text-[0.8125rem] font-medium text-fg">
+        <label htmlFor={id} className="block text-[0.8125rem] font-medium text-moon">
           {label}
         </label>
-        {description && <p className="mt-1 text-xs leading-relaxed text-fg-muted">{description}</p>}
+        {description && <p className="mt-1 text-xs leading-relaxed text-moon-2">{description}</p>}
       </div>
       <button
         type="button"
@@ -93,16 +93,16 @@ export function Toggle({ checked, onChange, label, description, disabled }: Togg
         className={cn(
           "relative mt-0.5 h-6 w-11 shrink-0 rounded-pill border transition-colors duration-200",
           "disabled:cursor-not-allowed disabled:opacity-50",
-          checked ? "border-accent bg-accent" : "border-line-strong bg-surface-hover",
+          checked ? "border-lamp bg-lamp" : "border-rule-strong bg-panel-2",
         )}
       >
         <span
           className={cn(
             "absolute top-0.5 flex size-4 items-center justify-center rounded-pill transition-all duration-200",
-            checked ? "left-[1.5rem] bg-fg-inverse" : "left-0.5 bg-fg-subtle",
+            checked ? "left-[1.5rem] bg-on-lamp" : "left-0.5 bg-moon-3",
           )}
         >
-          {checked && <Check aria-hidden className="size-3 text-accent" strokeWidth={3} />}
+          {checked && <Check aria-hidden className="size-3 text-lamp" strokeWidth={3} />}
         </span>
         <span className="sr-only">{checked ? "On" : "Off"}</span>
       </button>
@@ -139,10 +139,10 @@ export function Slider({
   return (
     <div className="space-y-2">
       <div className="flex items-baseline justify-between gap-3">
-        <label htmlFor={id} className="text-[0.8125rem] font-medium text-fg">
+        <label htmlFor={id} className="text-[0.8125rem] font-medium text-moon">
           {label}
         </label>
-        <span className="font-mono text-xs tabular-nums text-accent">{display ?? value}</span>
+        <span className="font-mono text-xs tabular-nums text-lamp">{display ?? value}</span>
       </div>
       <input
         id={id}
@@ -156,21 +156,21 @@ export function Slider({
         // The filled portion is painted with a gradient stop at the current
         // value, so the track needs no extra element to style.
         style={{
-          background: `linear-gradient(to right, var(--color-accent) ${percent}%, var(--color-line-strong) ${percent}%)`,
+          background: `linear-gradient(to right, var(--color-lamp) ${percent}%, var(--color-rule-strong) ${percent}%)`,
         }}
         className={cn(
           "h-1.5 w-full cursor-pointer appearance-none rounded-pill",
           "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:size-4",
-          "[&::-webkit-slider-thumb]:rounded-pill [&::-webkit-slider-thumb]:bg-accent",
-          "[&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-surface",
+          "[&::-webkit-slider-thumb]:rounded-pill [&::-webkit-slider-thumb]:bg-lamp",
+          "[&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-panel",
           "[&::-webkit-slider-thumb]:transition-transform hover:[&::-webkit-slider-thumb]:scale-110",
           "[&::-moz-range-thumb]:size-4 [&::-moz-range-thumb]:rounded-pill",
-          "[&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-surface",
-          "[&::-moz-range-thumb]:bg-accent",
+          "[&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-panel",
+          "[&::-moz-range-thumb]:bg-lamp",
         )}
       />
       {hint && (
-        <p id={hintId} className="text-xs leading-relaxed text-fg-muted">
+        <p id={hintId} className="text-xs leading-relaxed text-moon-2">
           {hint}
         </p>
       )}

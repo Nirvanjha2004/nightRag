@@ -28,10 +28,13 @@ export function SettingsView() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <header className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-3 sm:px-6">
+      <header className="mx-auto flex w-full max-w-5xl flex-wrap items-end gap-3 px-4 pt-8 sm:px-6">
         <div>
-          <h1 className="text-sm font-semibold text-fg">Settings</h1>
-          <p className="mt-0.5 text-xs text-fg-muted">
+          <p className="eyebrow">Settings</p>
+          <h1 className="display mt-2 text-[1.5rem] font-bold leading-tight tracking-[-0.015em] text-moon">
+            How hard retrieval works
+          </h1>
+          <p className="mt-1.5 text-[0.8125rem] text-moon-2">
             Applied to the next question. Stored in this browser, not on the server.
           </p>
         </div>
@@ -155,13 +158,13 @@ export function SettingsView() {
               }
             />
             <div className="flex items-center justify-between gap-3 pt-1">
-              <span className="text-fg-muted">API keys</span>
+              <span className="text-moon-2">API keys</span>
               {health && health.missing_keys.length === 0 ? (
-                <Badge tone="positive" icon={CheckCircle2}>
+                <Badge tone="keep" icon={CheckCircle2}>
                   Configured
                 </Badge>
               ) : (
-                <Badge tone="critical" icon={XCircle}>
+                <Badge tone="cut" icon={XCircle}>
                   {health ? `Missing ${health.missing_keys.join(", ")}` : "Unknown"}
                 </Badge>
               )}
@@ -171,11 +174,11 @@ export function SettingsView() {
                 directly in a flex container would make every run of text
                 around the inline <code> its own item, laying the sentence out
                 in columns. */}
-            <div className="flex items-start gap-2 rounded-control border border-line bg-surface-raised px-3 py-2">
-              <Info aria-hidden className="mt-0.5 size-3.5 shrink-0 text-fg-subtle" />
-              <p className="text-xs leading-relaxed text-fg-muted">
+            <div className="flex items-start gap-2 rounded-control border border-rule bg-panel px-3 py-2">
+              <Info aria-hidden className="mt-0.5 size-3.5 shrink-0 text-moon-3" />
+              <p className="text-xs leading-relaxed text-moon-2">
                 Keys and storage come from the server's{" "}
-                <code className="font-mono text-fg">.env</code>. Change them there and restart —
+                <code className="font-mono text-moon">.env</code>. Change them there and restart —
                 they are deliberately not editable from the browser.
               </p>
             </div>
@@ -189,8 +192,8 @@ export function SettingsView() {
 function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex items-baseline justify-between gap-3">
-      <span className="shrink-0 text-fg-muted">{label}</span>
-      <span className={mono ? "truncate font-mono text-xs text-fg" : "text-fg"}>{value}</span>
+      <span className="shrink-0 text-moon-2">{label}</span>
+      <span className={mono ? "truncate font-mono text-xs text-moon" : "text-moon"}>{value}</span>
     </div>
   );
 }
