@@ -5,6 +5,25 @@
  * by hand, so keep field names in sync when either side changes.
  */
 
+/**
+ * Where the NightRag API lives, resolved in this order:
+ *   1. window.__NIGHTRAG_API_URL__ — runtime override, set in your hosting
+ *      provider's HTML/script so you can point at a backend without rebuilding.
+ *   2. VITE_NIGHTRAG_API_URL — build-time env var. Set it on your frontend
+ *      host (Vercel/Netlify/Render) before `npm run build`; Vite inlines
+ *      VITE_-prefixed vars into the bundle.
+ *   3. "" — same origin. The default: the FastAPI server serves the built UI
+ *      and /api from the same port, so relative paths just work.
+ *
+ * Note: NIGHTRAG_API_URL (no VITE_ prefix) is NOT readable by client code —
+ * it only configures the Vite dev proxy in vite.config.ts.
+ */
+export const API_BASE = (
+  (window as { __NIGHTRAG_API_URL__?: string }).__NIGHTRAG_API_URL__ ??
+  import.meta.env.VITE_NIGHTRAG_API_URL ??
+  ""
+).replace(/\/+$/, "");
+
 export interface PipelineConfig {
   collection: string;
   model: string;
@@ -105,7 +124,7 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, init);
+  const response = await fetch(`${API_BASE}${path}`, init);
   if (!response.ok) {
     let message = `Request failed (HTTP ${response.status}).`;
     try {

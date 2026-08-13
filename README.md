@@ -188,6 +188,19 @@ after ~15 min idle and cold-start slowly; upgrading to a paid instance lets you
 swap hosted Qdrant for a persistent disk (`render.yaml` has that variant
 commented).
 
+#### Hosting the UI and the API separately
+
+The built UI talks to `/api/*` on **its own origin** unless you tell it where
+the backend lives. `NIGHTRAG_API_URL` does **not** do that — it only configures
+the Vite dev proxy. To point a separately-hosted frontend at your backend:
+
+- Set `VITE_NIGHTRAG_API_URL` (e.g. `https://nightrag-api.onrender.com`) as a
+  build-time env var on your frontend host, **or** set
+  `window.__NIGHTRAG_API_URL__` in the host's HTML for a runtime override that
+  needs no rebuild.
+- On the backend, set `NIGHTRAG_CORS_ORIGINS` to your frontend origin
+  (comma-separated if more than one) so cross-origin requests are allowed.
+
 ---
 
 ## Development

@@ -1,4 +1,4 @@
-import { ApiError, type Chunk, type CragTrace, type PipelineOptions, type StageStatus } from "./api";
+import { API_BASE, ApiError, type Chunk, type CragTrace, type PipelineOptions, type StageStatus } from "./api";
 
 /**
  * stream.ts — the SSE consumer for /api/ask/stream.
@@ -35,7 +35,7 @@ interface AskStreamParams {
 export async function askStream({ question, options, signal, onEvent }: AskStreamParams): Promise<void> {
   let response: Response;
   try {
-    response = await fetch("/api/ask/stream", {
+    response = await fetch(`${API_BASE}/api/ask/stream`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ question, options }),
