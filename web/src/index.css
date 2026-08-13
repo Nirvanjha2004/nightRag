@@ -1,14 +1,16 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   NightRag — lamplight on a blue night.
+   NightRag — warm graphite and burnished copper.
 
-   The ground is deep indigo, not black: this product is called Night, and a
-   night sky is blue. Against it sits one warm accent — lamp amber — which is
-   the only colour in the interface that means "this is happening now". Keep
-   (mint) and cut (rose) appear on retrieval verdicts and nowhere else.
+   The ground is warm near-black graphite, not blue-black: this product
+   interrogates code, and a research instrument sits on a dark desk, not
+   under a night sky. Against it sits one accent — burnished copper — which
+   is the only colour that means "this is happening now". Sage green marks
+   what survived retrieval; muted brick marks what failed. Both appear
+   only on retrieval verdicts and nowhere else.
 
-   Day is the same idea inverted: warm paper under daylight, same lamp.
+   Day is a warm editorial paper: ivory under soft light, same copper.
 
    Every value is defined once here. Components reference names, never hexes.
 --------------------------------------------------------------------------- */
@@ -25,55 +27,84 @@
   --radius-panel: 0.75rem;
   --radius-pill: 999px;
 
-  /* Night ground — a layered surface ramp, not one flat dark. ink is the
-     page, nav the instrument bar, panel a card, panel-2 a control well,
-     panel-3 the hover/interactive lift. */
-  --color-ink: #080c18;
-  --color-nav: #0b1122;
-  --color-panel: #0e1428;
-  --color-panel-2: #141c36;
-  --color-panel-3: #1a2446;
-  --color-overlay: #04060f;
-  --color-rule: #202b4c;
-  --color-rule-strong: #2e3c66;
+  /* ------------------------------------------------------------------
+     DARK MODE — warm graphite surface ramp.
 
-  /* Moonlight — the text ramp, kept in the blue family so it sits in the sky */
-  --color-moon: #e9eeff;
-  --color-moon-2: #9aa8ce;
-  --color-moon-3: #8898c8;
+     ink is the page, nav the instrument bar, panel a card, panel-2 a
+     control well, panel-3 the hover/interactive lift. Every surface
+     is warm-neutral: no blue, no purple, no cool undertone.
+     ------------------------------------------------------------------ */
+  --color-ink: #0C0C0B;
+  --color-nav: #11110F;
+  --color-panel: #161614;
+  --color-panel-2: #1C1B18;
+  --color-panel-3: #232220;
+  --color-overlay: #060605;
+  --color-rule: #292823;
+  --color-rule-strong: #3A3831;
 
-  /* Lamp — the single accent. Live, focused, selected. */
-  --color-lamp: #ffb454;
-  --color-lamp-2: #ffc97a;
-  --color-lamp-soft: #2a1e0d;
-  --color-lamp-line: #5c421c;
-  --color-on-lamp: #1a1206;
+  /* ------------------------------------------------------------------
+     TEXT RAMP — warm neutrals. Hierarchy comes from contrast and weight,
+     not from hue. Secondary text is never blue.
+     ------------------------------------------------------------------ */
+  --color-moon: #F1EEE6;
+  --color-moon-2: #B7B2A6;
+  --color-moon-3: #858074;
 
-  /* Retrieval verdicts. Always paired with an icon or a word. */
-  --color-keep: #5fe3b3;
-  --color-keep-soft: #0c2a22;
-  --color-cut: #ff6b81;
-  --color-cut-soft: #2c1119;
+  /* ------------------------------------------------------------------
+     ACCENT — burnished copper. Metallic, warm, mature, understated.
+     Used only for: primary actions, active nav, focus states, sliders,
+     progress indicators, the brand dot, and important interactive states.
+     Never used as a dominant page colour.
+     ------------------------------------------------------------------ */
+  --color-lamp: #C8874A;
+  --color-lamp-2: #D89A5A;
+  --color-lamp-soft: #1A1510;
+  --color-lamp-line: #5C4A30;
+  --color-on-lamp: #1A1510;
 
-  /* Code, mapped into the same sky so nothing new is introduced */
-  --color-code-keyword: #9db4ff;
-  --color-code-string: #7fdcb4;
-  --color-code-number: #ffc07a;
-  --color-code-comment: #6b79a3;
-  --color-code-function: #ffb454;
+  /* ------------------------------------------------------------------
+     RETRIEVAL VERDICTS — always paired with an icon or a word.
 
-  /* The lamp's throw. Used only on the running stage. */
-  --glow-lamp: 0 0 0 1px var(--color-lamp-line), 0 0 28px -6px rgba(255, 180, 84, 0.45);
-  --glow-dot: 0 0 12px 2px rgba(255, 180, 84, 0.55);
-  --shadow-panel: 0 1px 0 0 rgba(255, 255, 255, 0.03) inset, 0 10px 30px -18px rgba(0, 0, 0, 0.9);
-  --shadow-float: 0 0 0 1px var(--color-rule), 0 18px 44px -20px rgba(0, 0, 0, 0.65);
-  --shadow-drawer: -16px 0 48px -16px rgba(0, 0, 0, 0.55);
+     keep = sage green: what survived, successful retrieval, completed
+     cut  = muted brick: what was discarded, errors, failures
+     ------------------------------------------------------------------ */
+  --color-keep: #7F9A83;
+  --color-keep-soft: #121815;
+  --color-cut: #C76B62;
+  --color-cut-soft: #1C1211;
 
-  /* Atmosphere washes — two very faint light sources behind the work, one
-     warm over the hero and one cool low on the left. They sit behind every
-     surface; nothing in the interface ever depends on them. */
-  --color-atmo-lamp: rgba(255, 180, 84, 0.08);
-  --color-atmo-sky: rgba(111, 142, 255, 0.09);
+  /* ------------------------------------------------------------------
+     CODE SYNTAX — a warm IDE palette. Comfortable for long reading,
+     no rainbow, no cool tones. Keywords echo the copper accent;
+     strings echo the sage green; comments are warm muted gray.
+     ------------------------------------------------------------------ */
+  --color-code-keyword: #C8874A;
+  --color-code-string: #7F9A83;
+  --color-code-number: #D4A76A;
+  --color-code-comment: #6B665C;
+  --color-code-function: #B89A5A;
+
+  /* ------------------------------------------------------------------
+     SHADOWS & GLOW — material hierarchy, not visual effects.
+
+     Glow is used only on the running retrieval stage and the brand dot.
+     Shadows are neutral black. No blue shadows, no colored glows.
+     ------------------------------------------------------------------ */
+  --glow-lamp: 0 0 0 1px var(--color-lamp-line), 0 0 24px -6px rgba(200, 135, 74, 0.4);
+  --glow-dot: 0 0 10px 2px rgba(200, 135, 74, 0.45);
+  --shadow-panel: 0 1px 0 0 rgba(255, 255, 255, 0.02) inset, 0 10px 30px -18px rgba(0, 0, 0, 0.85);
+  --shadow-float: 0 0 0 1px var(--color-rule), 0 18px 44px -20px rgba(0, 0, 0, 0.6);
+  --shadow-drawer: -16px 0 48px -16px rgba(0, 0, 0, 0.5);
+
+  /* ------------------------------------------------------------------
+     ATMOSPHERE — two very faint warm washes behind the work surface.
+     They sit behind every surface; nothing in the interface depends
+     on them. A warm copper wash over the hero, a subtle warm tone
+     low on the left. No cool washes.
+     ------------------------------------------------------------------ */
+  --color-atmo-lamp: rgba(200, 135, 74, 0.07);
+  --color-atmo-sky: rgba(180, 160, 130, 0.05);
 
   /* Motion. One easing everywhere, and a three-step duration scale so a
      micro-interaction, a normal transition and a panel never race. */
@@ -83,45 +114,52 @@
   --duration-slow: 400ms;
 }
 
+/* ------------------------------------------------------------------
+   LIGHT MODE — warm editorial paper.
+
+   A genuinely designed light theme: warm ivory, not pure white.
+   Paper-like, editorial, refined. The same semantic roles mapped
+   to independent values that suit a light surface.
+   ------------------------------------------------------------------ */
 [data-theme="day"] {
-  --color-ink: #f7f5f0;
-  --color-nav: #faf8f2;
-  --color-panel: #ffffff;
-  --color-panel-2: #f2efe8;
-  --color-panel-3: #ece7d9;
-  --color-overlay: #171a24;
-  --color-rule: #e3ded2;
-  --color-rule-strong: #cbc4b5;
+  --color-ink: #F4F1E9;
+  --color-nav: #FAF8F3;
+  --color-panel: #FFFDF8;
+  --color-panel-2: #F0ECE3;
+  --color-panel-3: #E8E2D6;
+  --color-overlay: #24221E;
+  --color-rule: #D9D3C7;
+  --color-rule-strong: #C4BDB0;
 
-  --color-moon: #171a24;
-  --color-moon-2: #545b70;
-  --color-moon-3: #5c6580;
+  --color-moon: #24221E;
+  --color-moon-2: #625E56;
+  --color-moon-3: #888175;
 
-  --color-lamp: #c27a15;
-  --color-lamp-2: #a36310;
-  --color-lamp-soft: #fdf3e3;
-  --color-lamp-line: #e6cfa8;
-  --color-on-lamp: #ffffff;
+  --color-lamp: #A96532;
+  --color-lamp-2: #8C5228;
+  --color-lamp-soft: #FBF3EA;
+  --color-lamp-line: #DBC4A0;
+  --color-on-lamp: #FFFDF8;
 
-  --color-keep: #0f7a54;
-  --color-keep-soft: #e6f6ef;
-  --color-cut: #be123c;
-  --color-cut-soft: #fdeaee;
+  --color-keep: #58765E;
+  --color-keep-soft: #EDF5F0;
+  --color-cut: #A94F47;
+  --color-cut-soft: #FDF0EE;
 
-  --color-code-keyword: #1d4ed8;
-  --color-code-string: #0f7a4a;
-  --color-code-number: #a4530b;
-  --color-code-comment: #767e96;
-  --color-code-function: #9a3412;
+  --color-code-keyword: #A96532;
+  --color-code-string: #58765E;
+  --color-code-number: #8C5228;
+  --color-code-comment: #888175;
+  --color-code-function: #A96532;
 
-  --glow-lamp: 0 0 0 1px var(--color-lamp-line), 0 6px 20px -10px rgba(180, 83, 9, 0.4);
-  --glow-dot: 0 0 10px 0 rgba(180, 83, 9, 0.35);
-  --shadow-panel: 0 1px 2px rgba(23, 26, 36, 0.05), 0 8px 24px -20px rgba(23, 26, 36, 0.5);
-  --shadow-float: 0 0 0 1px var(--color-rule-strong), 0 12px 32px -18px rgba(23, 26, 36, 0.4);
-  --shadow-drawer: -16px 0 48px -20px rgba(23, 26, 36, 0.3);
+  --glow-lamp: 0 0 0 1px var(--color-lamp-line), 0 4px 16px -8px rgba(169, 101, 50, 0.35);
+  --glow-dot: 0 0 8px 0 rgba(169, 101, 50, 0.3);
+  --shadow-panel: 0 1px 2px rgba(36, 34, 30, 0.04), 0 8px 24px -20px rgba(36, 34, 30, 0.45);
+  --shadow-float: 0 0 0 1px var(--color-rule-strong), 0 12px 32px -18px rgba(36, 34, 30, 0.35);
+  --shadow-drawer: -16px 0 48px -20px rgba(36, 34, 30, 0.25);
 
-  --color-atmo-lamp: rgba(194, 122, 21, 0.08);
-  --color-atmo-sky: rgba(23, 26, 36, 0.04);
+  --color-atmo-lamp: rgba(169, 101, 50, 0.06);
+  --color-atmo-sky: rgba(100, 90, 75, 0.03);
 }
 
 @layer base {
@@ -157,7 +195,7 @@
       color var(--duration-normal) var(--ease-standard);
   }
 
-  /* One focus treatment everywhere: the lamp, offset, never removed. */
+  /* One focus treatment everywhere: the copper accent, offset, never removed. */
   :focus-visible {
     outline: 2px solid var(--color-lamp);
     outline-offset: 2px;
@@ -329,7 +367,7 @@
     font-weight: 600;
   }
 
-  /* highlight.js output, mapped onto the palette so code introduces no
+  /* highlight.js output, mapped onto the warm palette so code introduces no
      colour the rest of the interface does not already use. */
   .hljs-keyword,
   .hljs-built_in,
@@ -388,7 +426,7 @@
     }
   }
 
-  /* The lamp breathing while a stage runs. One subtle cycle, not a strobe. */
+  /* The copper breathing while a stage runs. One subtle cycle, not a strobe. */
   @keyframes lamp-breathe {
     0%,
     100% {
@@ -419,7 +457,7 @@
     animation: status-ping 2.6s var(--ease-standard) infinite;
   }
 
-  /* Indeterminate progress: a lamp sliver sweeping the track while an
+  /* Indeterminate progress: a copper sliver sweeping the track while an
      ingestion runs. Compositor-only, so it costs nothing while it loops. */
   @keyframes sweep {
     from {

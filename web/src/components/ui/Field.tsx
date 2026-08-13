@@ -167,7 +167,7 @@ export function Slider({
           "[&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-panel",
           "[&::-webkit-slider-thumb]:shadow-[0_1px_3px_rgba(0,0,0,0.35)]",
           "[&::-webkit-slider-thumb]:transition-transform hover:[&::-webkit-slider-thumb]:scale-110",
-          "focus-visible:[&::-webkit-slider-thumb]:scale-110 focus-visible:[&::-webkit-slider-thumb]:shadow-[0_0_0_3px_rgba(255,180,84,0.35),0_1px_3px_rgba(0,0,0,0.35)]",
+          "focus-visible:[&::-webkit-slider-thumb]:scale-110 focus-visible:[&::-webkit-slider-thumb]:shadow-[0_0_0_3px_rgba(200,135,74,0.3),0_1px_3px_rgba(0,0,0,0.35)]",
           "[&::-moz-range-thumb]:size-4 [&::-moz-range-thumb]:rounded-pill",
           "[&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-panel",
           "[&::-moz-range-thumb]:bg-lamp",

@@ -142,8 +142,7 @@ export function IngestPanel({ defaultCollection, onStarted }: IngestPanelProps) 
               onDrop={onDrop}
               className={cn(
                 "flex flex-col items-center rounded-control border border-dashed px-4 py-8 text-center transition-colors duration-200",
-                dragging
-                  ? "border-lamp bg-lamp-soft shadow-[0_0_0_3px_rgba(255,180,84,0.12)]"
+                dragging                   ? "border-lamp bg-lamp-soft shadow-[0_0_0_3px_rgba(200,135,74,0.12)]"
                   : "border-rule-strong bg-panel hover:border-rule-strong",
               )}
             >

@@ -27,10 +27,10 @@ export function AppShell({ children }: { children: ReactNode }) {
   const reduced = useReducedMotion();
 
   return (
-    <div className="flex h-dvh flex-col bg-ink">
+    <div className="flex h-dvh flex-col bg-ink px-3 pt-3">
       <InstrumentBar />
 
-      <main id="main" className="min-h-0 flex-1 overflow-hidden">
+      <main id="main" className="mt-3 min-h-0 flex-1 overflow-hidden">
         {/* Pages share one entrance: a short rise. They are keyed by route so
             switching tabs reads as the next screen arriving, not a snap. */}
         <AnimatePresence mode="wait" initial={false}>
@@ -56,7 +56,14 @@ function InstrumentBar() {
   const lit = Boolean(health) && (health?.missing_keys.length ?? 1) === 0;
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-2 border-b border-rule bg-nav px-3 sm:gap-3 sm:px-5">
+    <header
+      className="
+        flex h-12 items-center gap-2 rounded-xl
+        border border-rule/40 bg-ink/80 backdrop-blur-xl
+        px-3 shadow-[0_2px_16px_-4px_rgba(0,0,0,0.3)]
+        sm:gap-3 sm:px-5
+      "
+    >
       <a
         href="#main"
         className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-50 focus:rounded-control focus:bg-lamp focus:px-3 focus:py-2 focus:text-sm focus:text-on-lamp"
@@ -64,13 +71,12 @@ function InstrumentBar() {
         Skip to content
       </a>
 
-      {/* Wordmark. The lamp sits inside the O of Night as a moon — the only
-          place the brand mark appears, and it doubles as the health light. */}
+      {/* Brand mark — a search scope that doubles as the health light. */}
       <div className="flex h-full items-center">
         <BrandMark lit={lit} />
       </div>
 
-      <span aria-hidden className="hidden h-5 w-px bg-rule sm:block" />
+      <span aria-hidden className="hidden h-5 w-px bg-rule/50 sm:block" />
 
       <nav aria-label="Main" className="flex h-full items-center gap-0.5">
         {NAV.map(({ to, label }) => (
@@ -87,14 +93,14 @@ function InstrumentBar() {
           >
             {({ isActive }) => (
               <>
-                {/* The active tab sits on a soft well with the lamp underlit.
+                {/* The active tab sits on a soft well with the copper underlit.
                     Both shapes share a layoutId, so switching tabs slides the
                     indicator between them instead of flashing a new one. */}
                 {isActive && (
                   <motion.span
                     layoutId="nav-well"
                     transition={{ type: "spring", stiffness: 420, damping: 36 }}
-                    className="absolute inset-x-1.5 inset-y-1.5 rounded-control bg-panel"
+                    className="absolute inset-x-1.5 inset-y-1.5 rounded-[0.375rem] bg-white/5"
                   />
                 )}
                 {isActive && (
@@ -120,10 +126,9 @@ function InstrumentBar() {
 }
 
 /**
- * The brand mark: a lamp that is dark until the server is actually usable.
- * A lozenge rather than a square — the one rotated corner is the whole
- * identity — with the lit lamp glowing only in night, and a faint ring that
- * appears on hover to keep the mark alive without animating it constantly.
+ * The brand mark: a search scope that is dark until the server is actually
+ * usable. A rounded square containing a magnifying glass — the universal
+ * symbol for search, doubled as the health indicator.
  */
 function BrandMark({ lit }: { lit: boolean }) {
   return (
@@ -131,22 +136,43 @@ function BrandMark({ lit }: { lit: boolean }) {
       className="group flex cursor-default items-center gap-2.5 pr-1"
       title={lit ? "Server ready" : "Server unavailable"}
     >
-      <span
-        aria-hidden
-        className={cn(
-          "relative flex size-7 items-center justify-center rounded-[0.4375rem] border transition-all duration-300",
-          lit ? "border-lamp-line bg-lamp-soft" : "border-rule bg-panel-2",
-          "group-hover:scale-[1.05] group-hover:border-lamp-line",
-        )}
-      >
-        <span
-          className={cn(
-            "size-2.5 rounded-pill transition-all duration-300",
-            lit ? "bg-lamp shadow-[var(--glow-dot)]" : "bg-rule-strong",
-          )}
-        />
+      <span className="relative flex size-7 items-center justify-center">
+        <svg viewBox="0 0 28 28" className="size-7" aria-hidden>
+          {/* Rounded square container */}
+          <rect
+            x="1.5" y="1.5" width="25" height="25" rx="6"
+            fill={lit ? "var(--color-lamp-soft)" : "var(--color-panel-2)"}
+            stroke={lit ? "var(--color-lamp-line)" : "var(--color-rule)"}
+            strokeWidth="1"
+            className="transition-all duration-300"
+          />
+          {/* Search lens */}
+          <circle
+            cx="12" cy="12" r="5.5"
+            fill="none"
+            stroke={lit ? "var(--color-lamp)" : "var(--color-rule-strong)"}
+            strokeWidth="2"
+            className="transition-all duration-300"
+          />
+          {/* Search handle */}
+          <line
+            x1="16.5" y1="16.5" x2="21" y2="21"
+            stroke={lit ? "var(--color-lamp)" : "var(--color-rule-strong)"}
+            strokeWidth="2" strokeLinecap="round"
+            className="transition-all duration-300"
+          />
+          {/* Small code bracket inside the lens — the "code" in code search */}
+          <path
+            d="M10.5 11l-1 1.5 1 1.5M13.5 11l1 1.5-1 1.5"
+            fill="none"
+            stroke={lit ? "var(--color-lamp-2)" : "var(--color-moon-3)"}
+            strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"
+            className="transition-all duration-300"
+          />
+        </svg>
+        {/* Hover ring — faint copper halo on hover when server is live */}
         {lit && (
-          <span className="pointer-events-none absolute inset-0 rounded-[0.4375rem] border border-lamp/25 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+          <span className="pointer-events-none absolute inset-[-2px] rounded-lg border border-lamp/15 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
         )}
       </span>
       <p className="display text-[0.9375rem] font-bold tracking-tight text-moon">
@@ -238,7 +264,7 @@ function ThemeToggle({ theme, toggle }: { theme: string; toggle: () => void }) {
       type="button"
       onClick={toggle}
       aria-label={`Switch to ${night ? "day" : "night"} theme`}
-      className="flex size-8 items-center justify-center overflow-hidden rounded-control border border-rule bg-panel text-moon-2 transition-colors hover:border-rule-strong hover:text-moon"
+      className="flex size-8 items-center justify-center overflow-hidden rounded-[0.375rem] border border-rule/40 bg-white/5 text-moon-2 transition-colors hover:border-rule-strong hover:text-moon"
     >
       <AnimatePresence mode="wait" initial={false}>
         <motion.span

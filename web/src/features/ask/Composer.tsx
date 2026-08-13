@@ -58,7 +58,7 @@ export function Composer({
             "flex items-end gap-2 rounded-panel border bg-ink p-2 transition-all duration-200",
             disabled
               ? "border-rule opacity-60"
-              : "border-rule focus-within:border-lamp-line focus-within:shadow-[0_0_0_3px_rgba(255,180,84,0.12),var(--glow-lamp)]",
+              : "border-rule focus-within:border-lamp-line focus-within:shadow-[0_0_0_3px_rgba(200,135,74,0.12),var(--glow-lamp)]",
           )}
         >
           <label htmlFor="question" className="sr-only">
@@ -120,7 +120,7 @@ export function Composer({
                   aria-label="Ask question"
                   // The send button lifts and the arrow rises with it — one small
                   // beat when the question is ready to go, then it is gone.
-                  className="group h-9 w-9 transition-[background-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:shadow-[0_6px_16px_-6px_rgba(255,180,84,0.65)] [&>svg]:transition-transform [&>svg]:duration-150 group-hover:[&>svg]:-translate-y-0.5"
+                  className="group h-9 w-9 transition-[background-color,box-shadow,transform] duration-150 hover:-translate-y-px hover:shadow-[0_6px_16px_-6px_rgba(200,135,74,0.6)] [&>svg]:transition-transform [&>svg]:duration-150 group-hover:[&>svg]:-translate-y-0.5"
                 >
                   <ArrowUp aria-hidden className="size-4" />
                 </Button>
