@@ -98,13 +98,22 @@
   --shadow-drawer: -16px 0 48px -16px rgba(0, 0, 0, 0.5);
 
   /* ------------------------------------------------------------------
-     ATMOSPHERE — two very faint warm washes behind the work surface.
-     They sit behind every surface; nothing in the interface depends
-     on them. A warm copper wash over the hero, a subtle warm tone
-     low on the left. No cool washes.
+     ATMOSPHERE — warm washes behind the work surface. Visible enough
+     to give the glassmorphic navbar something to blur, but never so
+     strong they compete with content. A copper wash over the hero,
+     a warm neutral tone low on the left.
      ------------------------------------------------------------------ */
-  --color-atmo-lamp: rgba(200, 135, 74, 0.07);
-  --color-atmo-sky: rgba(180, 160, 130, 0.05);
+  --color-atmo-lamp: rgba(200, 135, 74, 0.14);
+  --color-atmo-sky: rgba(180, 160, 130, 0.10);
+
+  /* ------------------------------------------------------------------
+     GLASS — the instrument bar is a pane of it. The nav colour at
+     partial opacity, so whatever washes pass behind the bar show
+     through the blur instead of being painted over. The well is the
+     tint an active tab sits on.
+     ------------------------------------------------------------------ */
+  --color-glass: rgba(17, 17, 15, 0.55);
+  --color-glass-well: rgba(255, 255, 255, 0.08);
 
   /* Motion. One easing everywhere, and a three-step duration scale so a
      micro-interaction, a normal transition and a panel never race. */
@@ -112,6 +121,13 @@
   --duration-fast: 150ms;
   --duration-normal: 250ms;
   --duration-slow: 400ms;
+}
+
+/* The lit top edge of the glass pane. Kept out of @theme: it is consumed
+   only via var() inside a box-shadow, and this guarantees it is always
+   defined rather than depending on @theme emission. */
+:root {
+  --glass-highlight: rgba(255, 255, 255, 0.06);
 }
 
 /* ------------------------------------------------------------------
@@ -158,8 +174,17 @@
   --shadow-float: 0 0 0 1px var(--color-rule-strong), 0 12px 32px -18px rgba(36, 34, 30, 0.35);
   --shadow-drawer: -16px 0 48px -20px rgba(36, 34, 30, 0.25);
 
-  --color-atmo-lamp: rgba(169, 101, 50, 0.06);
-  --color-atmo-sky: rgba(100, 90, 75, 0.03);
+  /* Day needs the washes louder than night does: ivory glass at half
+     opacity would otherwise flatten the backdrop to a solid pane. */
+  --color-atmo-lamp: rgba(169, 101, 50, 0.18);
+  --color-atmo-sky: rgba(100, 90, 75, 0.12);
+
+  /* Glass in day: ivory at partial opacity, a whisper of warm dark for
+     the wells (white tinting is invisible on paper), and a brighter top
+     edge so the pane still reads as a pane against the washes. */
+  --color-glass: rgba(250, 248, 243, 0.5);
+  --color-glass-well: rgba(36, 34, 30, 0.07);
+  --glass-highlight: rgba(255, 255, 255, 0.55);
 }
 
 @layer base {
@@ -181,8 +206,8 @@
     /* The washes are light, not texture: the page never scrolls as a whole,
        so they stay put behind the work and read as depth, not noise. */
     background-image:
-      radial-gradient(1100px 720px at 78% -12%, var(--color-atmo-lamp), transparent 62%),
-      radial-gradient(980px 640px at -12% 112%, var(--color-atmo-sky), transparent 60%);
+      radial-gradient(1400px 900px at 78% -8%, var(--color-atmo-lamp), transparent 55%),
+      radial-gradient(1200px 800px at -8% 108%, var(--color-atmo-sky), transparent 55%);
     color: var(--color-moon);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;

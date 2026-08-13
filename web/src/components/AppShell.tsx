@@ -26,8 +26,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const location = useLocation();
   const reduced = useReducedMotion();
 
+  // No background here on purpose: body paints the ink and the atmosphere
+  // washes, and this shell must stay transparent so those washes pass under
+  // the glass bar — the backdrop blur needs real colour behind it, or the
+  // bar reads as a flat pane instead of glass.
   return (
-    <div className="flex h-dvh flex-col bg-ink px-3 pt-3">
+    <div className="flex h-dvh flex-col px-3 pt-3">
       <InstrumentBar />
 
       <main id="main" className="mt-3 min-h-0 flex-1 overflow-hidden">
@@ -59,8 +63,8 @@ function InstrumentBar() {
     <header
       className="
         flex h-12 items-center gap-2 rounded-xl
-        border border-rule/40 bg-ink/80 backdrop-blur-xl
-        px-3 shadow-[0_2px_16px_-4px_rgba(0,0,0,0.3)]
+        border border-rule/30 bg-glass backdrop-blur-xl
+        px-3 shadow-[inset_0_1px_0_0_var(--glass-highlight),0_2px_16px_-4px_rgba(0,0,0,0.35)]
         sm:gap-3 sm:px-5
       "
     >
@@ -100,7 +104,7 @@ function InstrumentBar() {
                   <motion.span
                     layoutId="nav-well"
                     transition={{ type: "spring", stiffness: 420, damping: 36 }}
-                    className="absolute inset-x-1.5 inset-y-1.5 rounded-[0.375rem] bg-white/5"
+                    className="absolute inset-x-1.5 inset-y-1.5 rounded-[0.375rem] bg-glass-well"
                   />
                 )}
                 {isActive && (
@@ -264,7 +268,7 @@ function ThemeToggle({ theme, toggle }: { theme: string; toggle: () => void }) {
       type="button"
       onClick={toggle}
       aria-label={`Switch to ${night ? "day" : "night"} theme`}
-      className="flex size-8 items-center justify-center overflow-hidden rounded-[0.375rem] border border-rule/40 bg-white/5 text-moon-2 transition-colors hover:border-rule-strong hover:text-moon"
+      className="flex size-8 items-center justify-center overflow-hidden rounded-[0.375rem] border border-rule/30 bg-glass-well text-moon-2 transition-colors hover:border-rule-strong hover:text-moon"
     >
       <AnimatePresence mode="wait" initial={false}>
         <motion.span
