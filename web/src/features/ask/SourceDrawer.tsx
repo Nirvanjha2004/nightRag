@@ -71,17 +71,22 @@ export function SourceDrawer({ chunks, index, onClose, onNavigate }: SourceDrawe
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", stiffness: 380, damping: 38 }}
-            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[min(46rem,100vw)] flex-col border-l border-rule bg-panel shadow-[-8px_0_32px_rgba(0,0,0,0.3)]"
+            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-[min(46rem,100vw)] flex-col border-l border-rule bg-panel shadow-[var(--shadow-drawer)]"
           >
+            {/* The lamp rail: the drawer is evidence under the lamp's light,
+                so it opens with the same accent the row it came from wears. */}
+            <span aria-hidden className="h-0.5 w-full shrink-0 bg-lamp" />
+
             <header className="flex items-start gap-3 border-b border-rule px-4 py-3">
               <div className="min-w-0 flex-1">
                 <p className="truncate font-mono text-[0.8125rem] text-moon">{chunk.file_path}</p>
-                <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-moon-2">
-                  <span>{chunk.node_type.replace(/_/g, " ")}</span>
-                  <span aria-hidden>·</span>
+                <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-moon-2">
+                  <span className="rounded-[0.25rem] border border-rule bg-panel-2 px-1.5 py-0.5 font-mono text-[0.6875rem] text-moon-2">
+                    {chunk.node_type.replace(/_/g, " ")}
+                  </span>
                   <span className="font-mono text-moon">{chunk.name}</span>
-                  <span aria-hidden>·</span>
-                  <span>
+                  <span aria-hidden className="text-moon-3">·</span>
+                  <span className="tabular-nums">
                     lines {chunk.start_line}–{chunk.end_line}
                   </span>
                   <Badge tone="lamp">rank {index! + 1}</Badge>
@@ -112,8 +117,17 @@ export function SourceDrawer({ chunks, index, onClose, onNavigate }: SourceDrawe
 
             <footer className="flex items-center justify-between gap-3 border-t border-rule px-4 py-2.5">
               <span className="text-xs text-moon-2">
-                {index! + 1} of {chunks.length}
+                <span className="tally tabular-nums text-moon">{index! + 1}</span> of{" "}
+                {chunks.length}
               </span>
+              <p className="hidden text-[0.6875rem] text-moon-3 md:block">
+                <kbd className="rounded-[0.25rem] border border-rule bg-panel-2 px-1 font-mono text-[0.625rem]">↑</kbd>{" "}
+                /{" "}
+                <kbd className="rounded-[0.25rem] border border-rule bg-panel-2 px-1 font-mono text-[0.625rem]">↓</kbd>{" "}
+                navigate ·{" "}
+                <kbd className="rounded-[0.25rem] border border-rule bg-panel-2 px-1 font-mono text-[0.625rem]">Esc</kbd>{" "}
+                close
+              </p>
               <div className="flex gap-1.5">
                 <Button
                   size="sm"

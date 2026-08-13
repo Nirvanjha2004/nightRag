@@ -1,4 +1,11 @@
-import { motion } from "framer-motion";
+import { useEffect } from "react";
+import {
+  animate,
+  motion,
+  useMotionValue,
+  useReducedMotion,
+  useTransform,
+} from "framer-motion";
 import { AlertTriangle, Loader2, MinusCircle } from "lucide-react";
 import type { StageEvent } from "@/lib/api";
 import { buildLadder, type LadderStep } from "./ladder";
@@ -32,7 +39,12 @@ export function RetrievalLadder({ stages }: { stages: StageEvent[] }) {
       className="rounded-panel border border-rule bg-panel px-3.5 py-3 shadow-[var(--shadow-panel)]"
     >
       <header className="mb-2 flex items-baseline justify-between gap-3">
-        <h3 className="eyebrow">Retrieval</h3>
+        <h3 className="eyebrow flex items-center gap-2">
+          {ladder.running && (
+            <span aria-hidden className="status-ping size-1.5 rounded-pill bg-lamp" />
+          )}
+          Retrieval
+        </h3>
         <p className="text-[0.6875rem] text-moon-3">
           {ladder.running ? "running" : "candidates narrowed to the answer's context"}
         </p>
@@ -48,6 +60,7 @@ export function RetrievalLadder({ stages }: { stages: StageEvent[] }) {
 }
 
 function Row({ step, max }: { step: LadderStep; max: number }) {
+  const reduced = useReducedMotion();
   const live = step.status === "start";
   const failed = step.status === "error";
   const skipped = step.status === "skipped";
@@ -55,12 +68,16 @@ function Row({ step, max }: { step: LadderStep; max: number }) {
 
   const kept = step.count ?? 0;
   const cut = step.cut ?? 0;
+  const Icon = step.icon;
 
   // A decision changes what happens next but measures nothing, so it gets one
   // tight line and no bar — which is also what keeps the whole panel short.
   if (step.kind === "decision") {
     return (
-      <li
+      <motion.li
+        initial={reduced ? false : { opacity: 0, y: 4 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.25, ease: "easeOut" }}
         className={cn(
           "grid grid-cols-[2.25rem_1fr] items-baseline gap-3 rounded-control px-1.5 py-1",
           live && "bg-lamp-soft",
@@ -74,7 +91,13 @@ function Row({ step, max }: { step: LadderStep; max: number }) {
           ) : skipped ? (
             <MinusCircle aria-hidden className="size-3 text-moon-3" />
           ) : (
-            <span aria-hidden className="h-px w-2.5 bg-rule-strong" />
+            <Icon
+              aria-hidden
+              className={cn(
+                "size-3.5",
+                step.key === "answered" ? "text-keep" : "text-moon-3",
+              )}
+            />
           )}
         </span>
         <span className="flex min-w-0 items-baseline gap-2">
@@ -92,12 +115,15 @@ function Row({ step, max }: { step: LadderStep; max: number }) {
             </span>
           )}
         </span>
-      </li>
+      </motion.li>
     );
   }
 
   return (
-    <li
+    <motion.li
+      initial={reduced ? false : { opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.25, ease: "easeOut" }}
       className={cn(
         "grid grid-cols-[2.25rem_1fr] items-center gap-3 rounded-control px-1.5 py-1",
         live && "lit bg-lamp-soft",
@@ -105,15 +131,22 @@ function Row({ step, max }: { step: LadderStep; max: number }) {
     >
       <span
         className={cn(
-          "tally text-right text-[1.0625rem] leading-none",
+          "tally text-right text-[0.9375rem] leading-none",
           live ? "text-lamp" : final ? "text-keep" : "text-moon",
         )}
       >
-        {step.count ?? "·"}
+        {step.count === null ? "·" : <Count value={step.count} />}
       </span>
 
       <div className="min-w-0">
         <div className="flex items-baseline gap-2">
+          <Icon
+            aria-hidden
+            className={cn(
+              "size-3.5 shrink-0 translate-y-[1.5px]",
+              live ? "text-lamp" : "text-moon-3",
+            )}
+          />
           <span
             className={cn(
               "display text-[0.75rem] font-semibold",
@@ -130,7 +163,7 @@ function Row({ step, max }: { step: LadderStep; max: number }) {
           )}
         </div>
 
-        <div className="mt-1 flex h-1 w-full overflow-hidden rounded-pill bg-panel-2">
+        <div className="mt-1 flex h-1.5 w-full overflow-hidden rounded-pill bg-panel-2">
           {/* Survivors, then the ghost of what this step removed — together they
               always span what the step was handed. */}
           <motion.span
@@ -160,6 +193,27 @@ function Row({ step, max }: { step: LadderStep; max: number }) {
           )}
         </div>
       </div>
-    </li>
+    </motion.li>
   );
+}
+
+/**
+ * A number that counts up to its value the first time it settles. Tabular
+ * anyway, so the motion never shifts the column it lives in.
+ */
+function Count({ value }: { value: number }) {
+  const reduced = useReducedMotion();
+  const motionValue = useMotionValue(reduced ? value : 0);
+  const text = useTransform(motionValue, (v) => String(Math.round(v)));
+
+  useEffect(() => {
+    if (reduced) return;
+    const controls = animate(motionValue, value, {
+      duration: 0.5,
+      ease: [0.22, 1, 0.36, 1],
+    });
+    return () => controls.stop();
+  }, [value, motionValue, reduced]);
+
+  return <motion.span>{text}</motion.span>;
 }

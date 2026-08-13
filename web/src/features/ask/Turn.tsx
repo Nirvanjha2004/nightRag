@@ -37,7 +37,7 @@ export function Turn({ turn }: { turn: TurnData }) {
 
   return (
     <article className="border-t border-rule pt-7 first:border-t-0 first:pt-0">
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_17rem] lg:gap-8">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-8">
         <div className="min-w-0">
           <h2 className="display text-[1.375rem] font-semibold leading-[1.25] tracking-tight text-moon">
             {turn.question}
@@ -111,7 +111,7 @@ export function Turn({ turn }: { turn: TurnData }) {
         {/* Sticky on wide screens: scrolling through a long answer should never
             scroll its evidence out of reach. */}
         <aside className="lg:sticky lg:top-6 lg:self-start">
-          <SourceList chunks={turn.chunks} onOpen={setOpenSource} />
+          <SourceList chunks={turn.chunks} selected={openSource} onOpen={setOpenSource} />
         </aside>
       </div>
 

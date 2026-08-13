@@ -80,7 +80,10 @@ function JobRow({ job }: { job: Job }) {
       <div className="flex items-start gap-2.5 p-3">
         <span
           aria-hidden
-          className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-control border border-rule bg-panel text-moon-3"
+          className={cn(
+            "mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-control border transition-colors",
+            active ? "border-lamp-line bg-lamp-soft text-lamp" : "border-rule bg-panel text-moon-3",
+          )}
         >
           <SourceIcon className="size-3.5" />
         </span>
@@ -91,7 +94,7 @@ function JobRow({ job }: { job: Job }) {
           </p>
           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[0.6875rem] text-moon-3">
             <span>→ {job.collection}</span>
-            {formatTime(job.created_at) && <span>{formatTime(job.created_at)}</span>}
+            <span className="tabular-nums">{formatTime(job.created_at)}</span>
             {job.summary?.chunks !== undefined && (
               <span>
                 {formatCount(job.summary.chunks)} chunks from {formatCount(job.summary.files ?? 0)}{" "}
@@ -106,12 +109,20 @@ function JobRow({ job }: { job: Job }) {
         </Badge>
       </div>
 
+      {/* A live sweep under the run while it works — indeterminate, because
+          chunking has no honest progress bar. It just says "still moving". */}
+      {active && (
+        <div aria-hidden className="h-0.5 w-full overflow-hidden bg-panel-2">
+          <div className="sweep h-full w-1/3 rounded-pill bg-lamp/60" />
+        </div>
+      )}
+
       {job.logs.length > 0 && (
         <div
           ref={log}
           // A log is a running commentary, not a result — announcing every line
           // would flood a screen reader, so it is deliberately not a live region.
-          className="max-h-40 overflow-y-auto border-t border-rule px-3 py-2 font-mono text-[0.6875rem] leading-relaxed text-moon-2"
+          className="max-h-40 overflow-y-auto border-t border-rule bg-ink px-3 py-2 font-mono text-[0.6875rem] leading-relaxed text-moon-2"
         >
           {job.logs.map((line, index) => (
             <p key={index} className="whitespace-pre-wrap break-words">

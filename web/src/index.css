@@ -25,17 +25,22 @@
   --radius-panel: 0.75rem;
   --radius-pill: 999px;
 
-  /* Night ground */
+  /* Night ground — a layered surface ramp, not one flat dark. ink is the
+     page, nav the instrument bar, panel a card, panel-2 a control well,
+     panel-3 the hover/interactive lift. */
   --color-ink: #080c18;
+  --color-nav: #0b1122;
   --color-panel: #0e1428;
   --color-panel-2: #141c36;
+  --color-panel-3: #1a2446;
+  --color-overlay: #04060f;
   --color-rule: #202b4c;
   --color-rule-strong: #2e3c66;
 
   /* Moonlight — the text ramp, kept in the blue family so it sits in the sky */
   --color-moon: #e9eeff;
   --color-moon-2: #9aa8ce;
-  --color-moon-3: #7b89b5;
+  --color-moon-3: #8898c8;
 
   /* Lamp — the single accent. Live, focused, selected. */
   --color-lamp: #ffb454;
@@ -59,22 +64,41 @@
 
   /* The lamp's throw. Used only on the running stage. */
   --glow-lamp: 0 0 0 1px var(--color-lamp-line), 0 0 28px -6px rgba(255, 180, 84, 0.45);
+  --glow-dot: 0 0 12px 2px rgba(255, 180, 84, 0.55);
   --shadow-panel: 0 1px 0 0 rgba(255, 255, 255, 0.03) inset, 0 10px 30px -18px rgba(0, 0, 0, 0.9);
+  --shadow-float: 0 0 0 1px var(--color-rule), 0 18px 44px -20px rgba(0, 0, 0, 0.65);
+  --shadow-drawer: -16px 0 48px -16px rgba(0, 0, 0, 0.55);
+
+  /* Atmosphere washes — two very faint light sources behind the work, one
+     warm over the hero and one cool low on the left. They sit behind every
+     surface; nothing in the interface ever depends on them. */
+  --color-atmo-lamp: rgba(255, 180, 84, 0.08);
+  --color-atmo-sky: rgba(111, 142, 255, 0.09);
+
+  /* Motion. One easing everywhere, and a three-step duration scale so a
+     micro-interaction, a normal transition and a panel never race. */
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 250ms;
+  --duration-slow: 400ms;
 }
 
 [data-theme="day"] {
   --color-ink: #f7f5f0;
+  --color-nav: #faf8f2;
   --color-panel: #ffffff;
   --color-panel-2: #f2efe8;
+  --color-panel-3: #ece7d9;
+  --color-overlay: #171a24;
   --color-rule: #e3ded2;
   --color-rule-strong: #cbc4b5;
 
   --color-moon: #171a24;
   --color-moon-2: #545b70;
-  --color-moon-3: #767e96;
+  --color-moon-3: #5c6580;
 
-  --color-lamp: #b45309;
-  --color-lamp-2: #92400e;
+  --color-lamp: #c27a15;
+  --color-lamp-2: #a36310;
   --color-lamp-soft: #fdf3e3;
   --color-lamp-line: #e6cfa8;
   --color-on-lamp: #ffffff;
@@ -91,7 +115,13 @@
   --color-code-function: #9a3412;
 
   --glow-lamp: 0 0 0 1px var(--color-lamp-line), 0 6px 20px -10px rgba(180, 83, 9, 0.4);
+  --glow-dot: 0 0 10px 0 rgba(180, 83, 9, 0.35);
   --shadow-panel: 0 1px 2px rgba(23, 26, 36, 0.05), 0 8px 24px -20px rgba(23, 26, 36, 0.5);
+  --shadow-float: 0 0 0 1px var(--color-rule-strong), 0 12px 32px -18px rgba(23, 26, 36, 0.4);
+  --shadow-drawer: -16px 0 48px -20px rgba(23, 26, 36, 0.3);
+
+  --color-atmo-lamp: rgba(194, 122, 21, 0.08);
+  --color-atmo-sky: rgba(23, 26, 36, 0.04);
 }
 
 @layer base {
@@ -110,10 +140,21 @@
 
   body {
     background-color: var(--color-ink);
+    /* The washes are light, not texture: the page never scrolls as a whole,
+       so they stay put behind the work and read as depth, not noise. */
+    background-image:
+      radial-gradient(1100px 720px at 78% -12%, var(--color-atmo-lamp), transparent 62%),
+      radial-gradient(980px 640px at -12% 112%, var(--color-atmo-sky), transparent 60%);
     color: var(--color-moon);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
+    /* The theme change eases the whole page surface into the new values
+       instead of snapping. Token values change instantly; the transition
+       on the computed properties is what makes it read as a morph. */
+    transition:
+      background-color var(--duration-normal) var(--ease-standard),
+      color var(--duration-normal) var(--ease-standard);
   }
 
   /* One focus treatment everywhere: the lamp, offset, never removed. */
@@ -155,7 +196,7 @@
     font-family: var(--font-display);
     font-stretch: 112%;
     font-variation-settings: "wdth" 112;
-    letter-spacing: -0.005em;
+    letter-spacing: -0.01em;
   }
 
   /* Small caps-ish section markers. Tracking does the work, not weight. */
@@ -163,9 +204,9 @@
     font-family: var(--font-display);
     font-stretch: 108%;
     font-variation-settings: "wdth" 108;
-    font-size: 0.625rem;
+    font-size: 0.6875rem;
     font-weight: 600;
-    letter-spacing: 0.14em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
     color: var(--color-moon-3);
   }
@@ -359,6 +400,54 @@
   }
   .breathing {
     animation: lamp-breathe 2.4s ease-in-out infinite;
+  }
+
+  /* A soft status ring: breathes out once, slowly, then rests — the "alive"
+     reading of the corpus chip and live stages. */
+  @keyframes status-ping {
+    0% {
+      transform: scale(1);
+      opacity: 0.7;
+    }
+    70%,
+    100% {
+      transform: scale(2.8);
+      opacity: 0;
+    }
+  }
+  .status-ping {
+    animation: status-ping 2.6s var(--ease-standard) infinite;
+  }
+
+  /* Indeterminate progress: a lamp sliver sweeping the track while an
+     ingestion runs. Compositor-only, so it costs nothing while it loops. */
+  @keyframes sweep {
+    from {
+      transform: translateX(-100%);
+    }
+    to {
+      transform: translateX(320%);
+    }
+  }
+  .sweep {
+    animation: sweep 1.6s ease-in-out infinite;
+  }
+
+  /* One first-paint rise for hero content. Both the animation and the
+     fill-mode are overridden by the reduced-motion block below, so a reader
+     who asked for no motion sees the content immediately. */
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
+  .rise {
+    animation: rise 0.5s var(--ease-standard) both;
   }
 
   /* Motion is decoration here, never information. */

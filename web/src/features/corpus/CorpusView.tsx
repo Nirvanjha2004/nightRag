@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Database, RefreshCw, Trash2 } from "lucide-react";
 import { api, ApiError, type Job } from "@/lib/api";
 import { Badge } from "@/components/ui/Badge";
@@ -69,6 +70,7 @@ export function CorpusView() {
   };
 
   const collections = health?.collections ?? [];
+  const reduced = useReducedMotion();
 
   return (
     <div className="h-full overflow-y-auto">
@@ -76,29 +78,41 @@ export function CorpusView() {
         {/* No full-bleed page header: the top bar already names where you are
             and how much is indexed. What belongs here is the one fact it does
             not carry — where the index physically lives. */}
-        <p className="eyebrow">Corpus</p>
-        <h1 className="display mt-2 text-[1.5rem] font-bold leading-tight tracking-[-0.015em] text-moon">
+        <p className="eyebrow rise">Corpus</p>
+        <h1 className="display rise mt-2 text-[1.5rem] font-bold leading-tight tracking-[-0.015em] text-moon" style={{ animationDelay: "60ms" }}>
           What NightRag can answer from
         </h1>
-        <p className="mt-1.5 text-[0.8125rem] text-moon-2">
+        <p className="rise mt-1.5 text-[0.8125rem] text-moon-2" style={{ animationDelay: "120ms" }}>
           Stored in <span className="font-mono text-moon">{health?.storage ?? "…"}</span>
         </p>
       </div>
 
-      <div className="mx-auto grid w-full max-w-5xl gap-4 px-4 py-6 sm:px-6 lg:grid-cols-2">
-        <div className="space-y-4">
-          <IngestPanel
-            defaultCollection={health?.default_collection ?? "code_chunks"}
-            onStarted={(job) => {
-              setJobs((current) => [job, ...current]);
-              // Switch to the fast cadence now rather than waiting up to ten
-              // seconds for the idle poll to notice the new run.
-              setActive(true);
-            }}
-          />
-        </div>
+      {/* IngestPanel is the primary action — full width at the top. */}
+      <motion.div
+        initial={reduced ? false : { opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.15, ease: "easeOut" }}
+        className="mx-auto w-full max-w-5xl px-4 pt-6 sm:px-6"
+      >
+        <IngestPanel
+          defaultCollection={health?.default_collection ?? "code_chunks"}
+          onStarted={(job) => {
+            setJobs((current) => [job, ...current]);
+            // Switch to the fast cadence now rather than waiting up to ten
+            // seconds for the idle poll to notice the new run.
+            setActive(true);
+          }}
+        />
+      </motion.div>
 
-        <div className="space-y-4">
+      {/* Collections and ingestion runs sit below, side by side. */}
+      <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-5 px-4 py-6 sm:px-6 lg:grid-cols-2">
+        <motion.div
+          initial={reduced ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.25, ease: "easeOut" }}
+          className="space-y-4"
+        >
           <Card>
             <CardHeader
               title="Collections"
@@ -121,17 +135,17 @@ export function CorpusView() {
                   className="py-10"
                 />
               ) : (
-                <ul className="space-y-2">
+                <ul className="space-y-1">
                   {collections.map((collection) => (
                     <li
                       key={collection.name}
-                      className="flex items-center gap-3 rounded-control border border-rule bg-panel p-3"
+                      className="group flex items-center gap-3 rounded-control bg-panel-2 px-3 py-2.5 transition-colors duration-150 hover:bg-panel-3"
                     >
                       {/* Neutral: the lamp means live or selected, and every
                           collection wearing it would spend the accent on decoration. */}
                       <span
                         aria-hidden
-                        className="flex size-7 shrink-0 items-center justify-center rounded-control border border-rule bg-panel text-moon-3"
+                        className="flex size-7 shrink-0 items-center justify-center rounded-control bg-panel text-moon-3 transition-colors group-hover:text-lamp"
                       >
                         <Database className="size-3.5" />
                       </span>
@@ -140,14 +154,19 @@ export function CorpusView() {
                         <p className="truncate font-mono text-[0.8125rem] text-moon">
                           {collection.name}
                         </p>
-                        <p className="mt-0.5 text-[0.6875rem] text-moon-3">
-                          {formatCount(collection.points)} chunks
-                          {collection.vector_size ? ` · ${collection.vector_size}-dim vectors` : ""}
+                        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.6875rem] text-moon-3">
+                          <span className="tally tabular-nums">{formatCount(collection.points)} chunks</span>
+                          {collection.vector_size ? (
+                            <span>
+                              · <span className="tabular-nums">{collection.vector_size}-dim</span> vectors
+                            </span>
+                          ) : null}
                         </p>
                       </div>
 
                       {collection.indexed && <Badge tone="keep">BM25 warm</Badge>}
 
+                      {/* Trash hidden until hover to reduce visual noise. */}
                       <Button
                         size="sm"
                         variant="ghost"
@@ -155,7 +174,7 @@ export function CorpusView() {
                         loading={deleting === collection.name}
                         onClick={() => void remove(collection.name)}
                         aria-label={`Delete collection ${collection.name}`}
-                        className="hover:text-cut"
+                        className="opacity-0 transition-opacity duration-150 hover:text-cut group-hover:opacity-100"
                       >
                         <Trash2 aria-hidden className="size-4" />
                       </Button>
@@ -165,9 +184,16 @@ export function CorpusView() {
               )}
             </CardBody>
           </Card>
+        </motion.div>
 
+        <motion.div
+          initial={reduced ? false : { opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.3, ease: "easeOut" }}
+          className="space-y-4"
+        >
           <JobPanel jobs={jobs} loading={jobsLoading} />
-        </div>
+        </motion.div>
       </div>
     </div>
   );

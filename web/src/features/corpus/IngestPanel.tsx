@@ -1,4 +1,5 @@
 import { useRef, useState, type DragEvent } from "react";
+import { motion } from "framer-motion";
 import { FileArchive, FolderOpen, GitBranch, Upload } from "lucide-react";
 import { api, ApiError, type Job } from "@/lib/api";
 import { Button } from "@/components/ui/Button";
@@ -95,28 +96,38 @@ export function IngestPanel({ defaultCollection, onStarted }: IngestPanelProps) 
       />
       <CardBody className="space-y-4">
         <div role="tablist" aria-label="Source type" className="flex gap-1 rounded-control bg-panel-2 p-1">
-          {TABS.map(({ kind: tabKind, label, icon: Icon }) => (
-            <button
-              key={tabKind}
-              type="button"
-              role="tab"
-              aria-selected={kind === tabKind}
-              onClick={() => {
-                setKind(tabKind);
-                setError(null);
-              }}
-              className={cn(
-                "flex flex-1 items-center justify-center gap-1.5 rounded-[0.375rem] px-3 py-1.5",
-                "text-[0.8125rem] font-medium transition-colors",
-                kind === tabKind
-                  ? "bg-panel text-moon shadow-[0_1px_2px_rgba(0,0,0,0.2)]"
-                  : "text-moon-2 hover:text-moon",
-              )}
-            >
-              <Icon aria-hidden className="size-3.5" />
-              {label}
-            </button>
-          ))}
+          {TABS.map(({ kind: tabKind, label, icon: Icon }) => {
+            const active = kind === tabKind;
+            return (
+              <button
+                key={tabKind}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => {
+                  setKind(tabKind);
+                  setError(null);
+                }}
+                className={cn(
+                  "relative flex flex-1 items-center justify-center gap-1.5 rounded-[0.375rem] px-3 py-1.5",
+                  "text-[0.8125rem] font-medium transition-colors",
+                  active ? "text-moon" : "text-moon-2 hover:text-moon",
+                )}
+              >
+                {/* One shared layoutId, so the selected well slides between
+                    tabs instead of blinking into place. */}
+                {active && (
+                  <motion.span
+                    layoutId="ingest-tab"
+                    transition={{ type: "spring", stiffness: 400, damping: 34 }}
+                    className="absolute inset-0 rounded-[0.375rem] bg-panel shadow-[0_1px_2px_rgba(0,0,0,0.2)]"
+                  />
+                )}
+                <Icon aria-hidden className="relative z-10 size-3.5" />
+                <span className="relative z-10">{label}</span>
+              </button>
+            );
+          })}
         </div>
 
         {kind === "upload" ? (
@@ -130,11 +141,23 @@ export function IngestPanel({ defaultCollection, onStarted }: IngestPanelProps) 
               onDragLeave={() => setDragging(false)}
               onDrop={onDrop}
               className={cn(
-                "flex flex-col items-center rounded-control border border-dashed px-4 py-8 text-center transition-colors",
-                dragging ? "border-lamp bg-lamp-soft" : "border-rule-strong bg-panel",
+                "flex flex-col items-center rounded-control border border-dashed px-4 py-8 text-center transition-colors duration-200",
+                dragging
+                  ? "border-lamp bg-lamp-soft shadow-[0_0_0_3px_rgba(255,180,84,0.12)]"
+                  : "border-rule-strong bg-panel hover:border-rule-strong",
               )}
             >
-              <Upload aria-hidden className="mb-2.5 size-5 text-moon-3" />
+              <span
+                aria-hidden
+                className={cn(
+                  "mb-2.5 flex size-9 items-center justify-center rounded-control border transition-colors",
+                  dragging
+                    ? "border-lamp-line bg-lamp-soft text-lamp"
+                    : "border-rule bg-panel-2 text-moon-3",
+                )}
+              >
+                <Upload className="size-4" />
+              </span>
               {file ? (
                 <p className="text-[0.8125rem] text-moon">
                   <span className="font-mono">{file.name}</span>{" "}

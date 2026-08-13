@@ -54,7 +54,7 @@ export function SettingsView() {
         )}
       </header>
 
-      <div className="mx-auto grid w-full max-w-5xl gap-4 px-4 py-6 sm:px-6 lg:grid-cols-2">
+      <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-5 px-4 py-6 sm:px-6 lg:grid-cols-2">
         <Card>
           <CardHeader
             title="Retrieval"
@@ -144,46 +144,45 @@ export function SettingsView() {
           </CardBody>
         </Card>
 
-        <Card>
-          <CardHeader title="Server" description="Read from the server's environment." />
-          <CardBody className="space-y-3 text-[0.8125rem]">
-            <Row label="Version" value={health ? `v${health.version}` : "…"} />
-            <Row label="Storage" value={health?.storage ?? "…"} mono />
-            <Row label="Default collection" value={health?.default_collection ?? "…"} mono />
-            <Row label="Default model" value={health?.default_model ?? "…"} mono />
-            <Row
-              label="Indexed chunks"
-              value={
-                health ? formatCount(health.collections.reduce((n, c) => n + c.points, 0)) : "…"
-              }
-            />
-            <div className="flex items-center justify-between gap-3 pt-1">
-              <span className="text-moon-2">API keys</span>
-              {health && health.missing_keys.length === 0 ? (
-                <Badge tone="keep" icon={CheckCircle2}>
-                  Configured
-                </Badge>
-              ) : (
-                <Badge tone="cut" icon={XCircle}>
-                  {health ? `Missing ${health.missing_keys.join(", ")}` : "Unknown"}
-                </Badge>
-              )}
-            </div>
+      </div>
 
-            {/* The icon and the text are the two flex items. Putting the text
-                directly in a flex container would make every run of text
-                around the inline <code> its own item, laying the sentence out
-                in columns. */}
-            <div className="flex items-start gap-2 rounded-control border border-rule bg-panel px-3 py-2">
-              <Info aria-hidden className="mt-0.5 size-3.5 shrink-0 text-moon-3" />
-              <p className="text-xs leading-relaxed text-moon-2">
-                Keys and storage come from the server's{" "}
-                <code className="font-mono text-moon">.env</code>. Change them there and restart —
-                they are deliberately not editable from the browser.
-              </p>
-            </div>
-          </CardBody>
-        </Card>
+      {/* Server information is read-only — no card border, no shadow.
+          It is reference material, not configuration. */}
+      <div className="mx-auto w-full max-w-5xl px-4 pb-8 sm:px-6">
+        <p className="eyebrow mb-3">Server</p>
+        <div className="space-y-3 rounded-panel bg-panel-2 px-5 py-4 text-[0.8125rem]">
+          <Row label="Version" value={health ? `v${health.version}` : "…"} />
+          <Row label="Storage" value={health?.storage ?? "…"} mono />
+          <Row label="Default collection" value={health?.default_collection ?? "…"} mono />
+          <Row label="Default model" value={health?.default_model ?? "…"} mono />
+          <Row
+            label="Indexed chunks"
+            value={
+              health ? formatCount(health.collections.reduce((n, c) => n + c.points, 0)) : "…"
+            }
+          />
+          <div className="flex items-center justify-between gap-3 pt-1">
+            <span className="text-moon-2">API keys</span>
+            {health && health.missing_keys.length === 0 ? (
+              <Badge tone="keep" icon={CheckCircle2}>
+                Configured
+              </Badge>
+            ) : (
+              <Badge tone="cut" icon={XCircle}>
+                {health ? `Missing ${health.missing_keys.join(", ")}` : "Unknown"}
+              </Badge>
+            )}
+          </div>
+
+          <div className="flex items-start gap-2 rounded-control bg-panel px-3 py-2">
+            <Info aria-hidden className="mt-0.5 size-3.5 shrink-0 text-moon-3" />
+            <p className="text-xs leading-relaxed text-moon-2">
+              Keys and storage come from the server's{" "}
+              <code className="font-mono text-moon">.env</code>. Change them there and restart —
+              they are deliberately not editable from the browser.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

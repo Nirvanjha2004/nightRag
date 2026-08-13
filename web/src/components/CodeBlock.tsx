@@ -63,7 +63,7 @@ export function CodeBlock({ code, startLine, className }: CodeBlockProps) {
   return (
     <div
       className={cn(
-        "overflow-x-auto rounded-control border border-rule bg-ink font-mono text-[0.78125rem] leading-[1.65]",
+        "overflow-x-auto rounded-control border border-rule bg-ink font-mono text-[0.8125rem] leading-[1.65]",
         className,
       )}
     >

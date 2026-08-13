@@ -138,11 +138,13 @@ export function Slider({
 
   return (
     <div className="space-y-2">
-      <div className="flex items-baseline justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         <label htmlFor={id} className="text-[0.8125rem] font-medium text-moon">
           {label}
         </label>
-        <span className="font-mono text-xs tabular-nums text-lamp">{display ?? value}</span>
+        <span className="rounded-control border border-lamp-line bg-lamp-soft px-1.5 py-0.5 font-mono text-[0.6875rem] leading-4 tabular-nums text-lamp">
+          {display ?? value}
+        </span>
       </div>
       <input
         id={id}
@@ -163,7 +165,9 @@ export function Slider({
           "[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:size-4",
           "[&::-webkit-slider-thumb]:rounded-pill [&::-webkit-slider-thumb]:bg-lamp",
           "[&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-panel",
+          "[&::-webkit-slider-thumb]:shadow-[0_1px_3px_rgba(0,0,0,0.35)]",
           "[&::-webkit-slider-thumb]:transition-transform hover:[&::-webkit-slider-thumb]:scale-110",
+          "focus-visible:[&::-webkit-slider-thumb]:scale-110 focus-visible:[&::-webkit-slider-thumb]:shadow-[0_0_0_3px_rgba(255,180,84,0.35),0_1px_3px_rgba(0,0,0,0.35)]",
           "[&::-moz-range-thumb]:size-4 [&::-moz-range-thumb]:rounded-pill",
           "[&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-panel",
           "[&::-moz-range-thumb]:bg-lamp",
