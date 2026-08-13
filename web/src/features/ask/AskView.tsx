@@ -4,6 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Database, Filter, KeyRound, Layers, ListOrdered, Scale, Search, Trash2 } from "lucide-react";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { SpotlightCard } from "@/components/SpotlightCard";
 import { useHealth } from "@/hooks/useHealth";
 import { usePipelineSettings } from "@/hooks/useSettings";
 import { cn, formatCount } from "@/lib/utils";
@@ -262,11 +263,14 @@ function RestingLadder() {
   ];
 
   return (
-    <aside
-      aria-label="How retrieval narrows"
-      className="rise rounded-panel border border-rule bg-panel px-4 py-4 shadow-[var(--shadow-panel)] lg:self-start"
+    <SpotlightCard
+      className="rise rounded-panel lg:self-start"
       style={{ animationDelay: "240ms" }}
     >
+      <aside
+        aria-label="How retrieval narrows"
+        className="rounded-panel border border-rule bg-panel px-4 py-4 shadow-[var(--shadow-panel)]"
+      >
       <h2 className="eyebrow flex items-center gap-2">
         <span aria-hidden className="size-1 rounded-pill bg-lamp" />
         The cull
@@ -304,6 +308,7 @@ function RestingLadder() {
           );
         })}
       </ol>
-    </aside>
+      </aside>
+    </SpotlightCard>
   );
 }

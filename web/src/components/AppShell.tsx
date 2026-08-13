@@ -1,17 +1,13 @@
 import type { ReactNode } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Moon, Server, Sun } from "lucide-react";
 import type { Health } from "@/lib/api";
 import { useHealth } from "@/hooks/useHealth";
 import { useTheme } from "@/hooks/useTheme";
 import { cn, formatCount } from "@/lib/utils";
-
-const NAV = [
-  { to: "/", label: "Ask" },
-  { to: "/corpus", label: "Corpus" },
-  { to: "/settings", label: "Settings" },
-];
+import { BackgroundBeams } from "@/components/BackgroundBeams";
+import { NotchNav } from "@/components/NotchNav";
 
 /**
  * A thin instrument bar over a full-width workbench.
@@ -32,6 +28,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   // bar reads as a flat pane instead of glass.
   return (
     <div className="flex h-dvh flex-col px-3 pt-3">
+      {/* Aceternity's animated beams behind the whole work surface — warm
+          copper in both themes, frozen for reduced-motion readers. They sit
+          under everything (negative z, fixed) but over the body's washes, so
+          the glass bar has moving colour to blur. */}
+      <BackgroundBeams className="fixed inset-0 -z-10" />
+
       <InstrumentBar />
 
       <main id="main" className="mt-3 min-h-0 flex-1 overflow-hidden">
@@ -82,44 +84,7 @@ function InstrumentBar() {
 
       <span aria-hidden className="hidden h-5 w-px bg-rule/50 sm:block" />
 
-      <nav aria-label="Main" className="flex h-full items-center gap-0.5">
-        {NAV.map(({ to, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            end={to === "/"}
-            className={({ isActive }) =>
-              cn(
-                "relative flex h-full items-center px-2.5 text-[0.8125rem] font-medium transition-colors sm:px-3.5",
-                isActive ? "text-moon" : "text-moon-3 hover:text-moon-2",
-              )
-            }
-          >
-            {({ isActive }) => (
-              <>
-                {/* The active tab sits on a soft well with the copper underlit.
-                    Both shapes share a layoutId, so switching tabs slides the
-                    indicator between them instead of flashing a new one. */}
-                {isActive && (
-                  <motion.span
-                    layoutId="nav-well"
-                    transition={{ type: "spring", stiffness: 420, damping: 36 }}
-                    className="absolute inset-x-1.5 inset-y-1.5 rounded-[0.375rem] bg-glass-well"
-                  />
-                )}
-                {isActive && (
-                  <motion.span
-                    layoutId="nav-accent"
-                    transition={{ type: "spring", stiffness: 420, damping: 36 }}
-                    className="absolute inset-x-2.5 bottom-0 h-0.5 rounded-pill bg-lamp"
-                  />
-                )}
-                <span className="relative z-10">{label}</span>
-              </>
-            )}
-          </NavLink>
-        ))}
-      </nav>
+      <NotchNav />
 
       <div className="ml-auto flex items-center gap-2.5">
         {health && <CorpusStatus health={health} />}

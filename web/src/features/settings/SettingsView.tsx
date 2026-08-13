@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { Field, Slider, TextInput, Toggle } from "@/components/ui/Field";
+import { SpotlightCard } from "@/components/SpotlightCard";
 import { useToast } from "@/components/ui/Toast";
 import { useHealth } from "@/hooks/useHealth";
 import { usePipelineSettings } from "@/hooks/useSettings";
@@ -55,11 +56,12 @@ export function SettingsView() {
       </header>
 
       <div className="mx-auto grid w-full max-w-5xl grid-cols-1 gap-5 px-4 py-6 sm:px-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader
-            title="Retrieval"
-            description="How many chunks are searched, fused and handed to the model."
-          />
+        <SpotlightCard className="rounded-panel">
+          <Card>
+            <CardHeader
+              title="Retrieval"
+              description="How many chunks are searched, fused and handed to the model."
+            />
           <CardBody className="space-y-6">
             <Slider
               label="Chunks in the answer prompt"
@@ -87,7 +89,8 @@ export function SettingsView() {
               hint="Controls how sharply reciprocal rank fusion favours top-ranked hits. Lower values trust the first few results more."
             />
           </CardBody>
-        </Card>
+          </Card>
+        </SpotlightCard>
 
         <Card>
           <CardHeader

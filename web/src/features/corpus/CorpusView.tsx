@@ -4,6 +4,7 @@ import { Database, RefreshCw, Trash2 } from "lucide-react";
 import { api, ApiError, type Job } from "@/lib/api";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
+import { SpotlightCard } from "@/components/SpotlightCard";
 import { Card, CardBody, CardHeader } from "@/components/ui/Card";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SkeletonRows } from "@/components/ui/Skeleton";
@@ -113,9 +114,10 @@ export function CorpusView() {
           transition={{ duration: 0.3, delay: 0.25, ease: "easeOut" }}
           className="space-y-4"
         >
-          <Card>
-            <CardHeader
-              title="Collections"
+          <SpotlightCard className="rounded-panel">
+            <Card>
+              <CardHeader
+                title="Collections"
               description="Each holds the chunks of one or more ingested codebases."
               action={
                 <Button size="sm" variant="ghost" onClick={() => void refresh()} disabled={loading}>
@@ -183,7 +185,8 @@ export function CorpusView() {
                 </ul>
               )}
             </CardBody>
-          </Card>
+            </Card>
+          </SpotlightCard>
         </motion.div>
 
         <motion.div
