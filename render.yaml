@@ -24,7 +24,7 @@ services:
     runtime: docker
     repo: https://github.com/nirvanjha2004/nightRag   # <- your repo URL
     plan: free
-    healthCheckPath: /api/health
+    healthCheckPath: /api/get-health
     dockerContext: .
 
     envVars:
@@ -59,7 +59,7 @@ services:
   #   runtime: docker
   #   repo: https://github.com/YOUR_USERNAME/nightRag
   #   plan: starter
-  #   healthCheckPath: /api/health
+  #   healthCheckPath: /api/get-health
   #   envVars:
   #     - key: NIGHTRAG_HOST
   #       value: 0.0.0.0

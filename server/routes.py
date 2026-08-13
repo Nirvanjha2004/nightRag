@@ -75,7 +75,9 @@ def _to_stage_event(event: dict) -> StageEvent:
 
 
 # ---------------------------------------------------------------- health
-
+@router.get("/get-health")
+async def health_check():
+    return {"status": "ok"}
 
 @router.get("/health", response_model=HealthResponse)
 async def health(request: Request) -> HealthResponse:

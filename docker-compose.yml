@@ -21,7 +21,7 @@ services:
       - nightrag-data:/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/get-health')"]
       interval: 30s
       timeout: 5s
       retries: 3
