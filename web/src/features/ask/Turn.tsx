@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { memo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -29,8 +29,12 @@ const VERDICT = {
  * the answer came from those chunks and nothing else, so the two are never
  * more than a glance apart. On narrow screens the evidence falls below the
  * answer rather than into a tab, because a hidden citation is an unmade claim.
+ *
+ * Memoised: while an answer streams, `useAsk` replaces only the streaming
+ * turn's object, so past turns keep their identity and are skipped entirely
+ * instead of re-rendering (and re-parsing markdown) on every token.
  */
-export function Turn({ turn }: { turn: TurnData }) {
+export const Turn = memo(function Turn({ turn }: { turn: TurnData }) {
   const [openSource, setOpenSource] = useState<number | null>(null);
   const streaming = turn.status === "streaming";
   const verdict = turn.crag?.verdict;
@@ -123,7 +127,7 @@ export function Turn({ turn }: { turn: TurnData }) {
       />
     </article>
   );
-}
+});
 
 /** Shown between "retrieval finished" and "the first token arrived". */
 function PendingAnswer() {

@@ -28,10 +28,11 @@ export function AppShell({ children }: { children: ReactNode }) {
   // bar reads as a flat pane instead of glass.
   return (
     <div className="flex h-dvh flex-col px-3 pt-3">
-      {/* Aceternity's animated beams behind the whole work surface — warm
-          copper in both themes, frozen for reduced-motion readers. They sit
-          under everything (negative z, fixed) but over the body's washes, so
-          the glass bar has moving colour to blur. */}
+      {/* Aceternity's beams behind the whole work surface — warm copper in
+          both themes, rendered statically (animating 52 full-screen SVG
+          gradients is what made the site lag on laptops). They sit under
+          everything (negative z, fixed) but over the body's washes, so the
+          glass bar has colour to blur. */}
       <BackgroundBeams className="fixed inset-0 -z-10" />
 
       <InstrumentBar />

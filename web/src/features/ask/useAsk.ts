@@ -39,11 +39,32 @@ export function useAsk(options: PipelineOptions) {
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
-  useEffect(() => () => abortRef.current?.abort(), []);
+  // Tokens are buffered and committed once per animation frame rather than on
+  // every delta: a stream can deliver dozens of deltas a second, and each
+  // commit re-parses the answer's markdown and re-renders the turn. Batching
+  // caps that at one render per frame (~60/s), visually identical.
+  const pendingTokensRef = useRef<{ id: string; text: string } | null>(null);
+  const flushFrameRef = useRef<number | null>(null);
 
   const patch = useCallback((id: string, change: (turn: Turn) => Turn) => {
     setTurns((current) => current.map((turn) => (turn.id === id ? change(turn) : turn)));
   }, []);
+
+  const flushTokens = useCallback(() => {
+    flushFrameRef.current = null;
+    const pending = pendingTokensRef.current;
+    if (!pending) return;
+    pendingTokensRef.current = null;
+    patch(pending.id, (turn) => ({ ...turn, answer: turn.answer + pending.text }));
+  }, [patch]);
+
+  useEffect(
+    () => () => {
+      if (flushFrameRef.current !== null) cancelAnimationFrame(flushFrameRef.current);
+      abortRef.current?.abort();
+    },
+    [],
+  );
 
   const ask = useCallback(
     async (question: string) => {
@@ -85,13 +106,26 @@ export function useAsk(options: PipelineOptions) {
               prompt: event.prompt,
             }));
             break;
-          case "token":
-            patch(id, (turn) => ({ ...turn, answer: turn.answer + event.text }));
+          case "token": {
+            // Append to the buffer and schedule one commit for the next frame.
+            const pending = pendingTokensRef.current;
+            if (pending && pending.id === id) {
+              pending.text += event.text;
+            } else {
+              pendingTokensRef.current = { id, text: event.text };
+            }
+            if (flushFrameRef.current === null) {
+              flushFrameRef.current = requestAnimationFrame(flushTokens);
+            }
             break;
+          }
           case "done":
+            // Apply any buffered tokens before the terminal status lands.
+            flushTokens();
             patch(id, (turn) => ({ ...turn, status: "done", elapsedMs: event.elapsed_ms }));
             break;
           case "error":
+            flushTokens();
             patch(id, (turn) => ({ ...turn, status: "error", error: event.message }));
             break;
         }
@@ -104,19 +138,24 @@ export function useAsk(options: PipelineOptions) {
           signal: controller.signal,
           onEvent: apply,
         });
-        // A stream that ends without a terminal event means the user pressed
-        // Stop (or the connection dropped mid-answer) — keep whatever text
-        // arrived instead of discarding a partial answer.
+        // Apply whatever tokens were still buffered when the stream ended (the
+        // user pressed Stop, or the connection dropped mid-answer) — keep the
+        // text that arrived instead of discarding a partial answer.
+        flushTokens();
         patch(id, (turn) =>
           turn.status === "streaming" ? { ...turn, status: "stopped" } : turn,
         );
       } catch (caught) {
+        flushTokens();
         patch(id, (turn) => ({
           ...turn,
           status: "error",
           error: caught instanceof Error ? caught.message : "The request failed.",
         }));
       } finally {
+        // Cancel any still-scheduled frame (the flush below commits it now).
+        if (flushFrameRef.current !== null) cancelAnimationFrame(flushFrameRef.current);
+        flushTokens();
         if (abortRef.current === controller) {
           abortRef.current = null;
           setBusy(false);
